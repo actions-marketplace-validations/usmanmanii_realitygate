@@ -13,7 +13,7 @@ export function makeProject(files = {}, { git = false } = {}) {
   for (const [rel, content] of Object.entries(files)) {
     const abs = join(dir, rel);
     mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, typeof content === "string" ? content : JSON.stringify(content, null, 2));
+    writeFileSync(abs, typeof content === "string" || Buffer.isBuffer(content) ? content : JSON.stringify(content, null, 2));
   }
   if (git) {
     execFileSync("git", ["init", "-q"], { cwd: dir });

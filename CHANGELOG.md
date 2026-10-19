@@ -5,6 +5,9 @@
 ### Added
 - GitHub Flow contribution and release guidance, PR and issue templates, importable protection rulesets, and stable required CI checks.
 
+### Fixed
+- `scan-skills` no longer flags complete PNG, JPEG, GIF and WebP images as unreviewable binaries (S-013); it lists them instead. Renamed, truncated or padded files are still flagged.
+
 ## 0.1.0 — 2026-10-19
 
 First release.

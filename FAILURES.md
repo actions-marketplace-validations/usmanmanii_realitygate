@@ -87,6 +87,15 @@ the real fault was the canary's placement.
 **Now:** the gate canary is placed inside the project's include globs, with a matching
 file extension. There's a regression test for it.
 
+### F-013 — Our own scanner flagged the plugin's icon as an unreviewable binary
+**What happened:** S-013 flagged every file containing a zero byte. Adding the PNG icon that
+Anthropic's plugin directory asks for turned `scan-skills . --strict` red on our own repo. A rule
+that fires on every logo teaches people to ignore it.
+**Caught by:** CI on the icon pull request (`trust` job and the self-scan test).
+**Now:** complete PNG, JPEG, GIF and WebP files are listed as images, not flagged. The extension
+must match the file signature and the file must end exactly where the format ends, so a renamed
+executable, a truncated image or a payload appended after the image is still S-013. Tests cover both.
+
 ---
 
 ## Add yours

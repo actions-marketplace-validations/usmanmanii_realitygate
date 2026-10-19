@@ -264,7 +264,7 @@ It reads files only and never runs anything. Red flags:
 | S-007 | Prompt injection / concealment instructions | HIGH |
 | S-008 | Destructive system commands (wiping the home folder or disks, fork bombs) | HIGH |
 | S-009 | Disabling the agent's permission prompts | HIGH |
-| S-010…S-016 | Network calls in scripts, broad `allowed-tools`, binaries, networked hooks, remote MCP servers, install scripts | MEDIUM |
+| S-010…S-016 | Network calls in scripts, broad `allowed-tools`, binaries (complete PNG, JPEG, GIF and WebP images are listed instead), networked hooks, remote MCP servers, install scripts | MEDIUM |
 
 It also prints **what the package would run**: every hook, MCP server, install script and file that
 starts processes. **Publisher exclusions are always shown**, never silent: this repo excludes only

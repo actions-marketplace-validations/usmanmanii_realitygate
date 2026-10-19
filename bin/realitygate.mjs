@@ -213,6 +213,7 @@ function main() {
         r.inventory.installScripts.forEach((i) => out(`  install-script  ${i.hook}: ${i.cmd}`));
         if (r.inventory.spawnsProcesses.length) out(`  spawns processes: ${r.inventory.spawnsProcesses.join(", ")}`);
         if (!r.inventory.hooks.length && !r.inventory.mcpServers.length && !r.inventory.installScripts.length && !r.inventory.spawnsProcesses.length) out(c.dim("  nothing executable found"));
+        if (r.inventory.images.length) out(c.dim(`  images (complete PNG/JPEG/GIF/WebP, not executable): ${r.inventory.images.join(", ")}`));
         for (const f of r.findings) {
           const tag = f.severity === "HIGH" ? c.red("HIGH  ") : c.yellow("MEDIUM");
           out(`  ${tag} ${f.file}:${f.line}  ${c.bold(f.id)} ${f.label}`);

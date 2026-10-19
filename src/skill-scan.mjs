@@ -15,6 +15,19 @@ const TEXT_EXT = /\.(?:md|mdc|mjs|cjs|js|ts|mts|cts|jsx|tsx|sh|bash|zsh|ps1|psm1
 const CODE_EXT = /\.(?:mjs|cjs|js|ts|mts|cts|jsx|tsx|sh|bash|zsh|ps1|psm1|bat|cmd|py|rb)$/i;
 const MAX_BYTES = 2 * 1024 * 1024;
 
+// Complete PNG, JPEG, GIF and WebP files are pictures, not programs, so they are
+// listed instead of flagged (S-013). The extension must match the signature and
+// the file must end exactly where its format ends, so nothing rides along after it.
+const PNG_START = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_END = Buffer.from([0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+const IMAGES = [
+  { ext: /\.png$/i, complete: (b) => b.length > 20 && b.subarray(0, 8).equals(PNG_START) && b.subarray(-12).equals(PNG_END) },
+  { ext: /\.jpe?g$/i, complete: (b) => b.length > 4 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff && b.at(-2) === 0xff && b.at(-1) === 0xd9 },
+  { ext: /\.gif$/i, complete: (b) => b.length > 6 && /^GIF8[79]a$/.test(b.toString("latin1", 0, 6)) && b.at(-1) === 0x3b },
+  { ext: /\.webp$/i, complete: (b) => b.length > 12 && b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP" && b.readUInt32LE(4) + 8 === b.length },
+];
+const isCompleteImage = (file, buf) => IMAGES.some((f) => f.ext.test(file) && f.complete(buf));
+
 export const RED_FLAGS = [
   {
     id: "S-001", severity: "HIGH", label: "downloads and executes remote code (pipe to shell)",
@@ -76,12 +89,16 @@ export function scanSkills(rootArg) {
   const all = listFiles(root);
   const files = all.filter((f) => !ignored(f));
   const findings = [];
-  const inventory = { skills: [], hooks: [], mcpServers: [], spawnsProcesses: [], installScripts: [], binaries: [] };
+  const inventory = { skills: [], hooks: [], mcpServers: [], spawnsProcesses: [], installScripts: [], binaries: [], images: [] };
 
   for (const file of files) {
     const abs = join(root, file);
     if (statSync(abs).size > MAX_BYTES) continue;
     const buf = readFileSync(abs);
+    if (isCompleteImage(file, buf)) {
+      inventory.images.push(file);
+      continue;
+    }
     if (buf.includes(0)) {
       inventory.binaries.push(file);
       findings.push(finding("S-013", "MEDIUM", "binary file in the package (cannot be reviewed as text)", file, 1, ""));

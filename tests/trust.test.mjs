@@ -66,6 +66,39 @@ describe("scan-skills flags supply-chain attacks", () => {
     assert.equal(r.inventory.installScripts[0].hook, "postinstall");
   });
 
+  test("complete PNG, JPEG, GIF and WebP images are listed, not flagged as binaries (S-013)", () => {
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]),
+      Buffer.from("IHDR"), Buffer.alloc(17),
+      Buffer.from([0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]),
+    ]);
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0, 0, 0xff, 0xd9]);
+    const gif = Buffer.concat([Buffer.from("GIF89a"), Buffer.from([1, 0, 1, 0, 0, 0, 0, 0x3b])]);
+    const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.from([12, 0, 0, 0]), Buffer.from("WEBPVP8 "), Buffer.from([0, 0, 0, 0])]);
+    const r = scanSkills(project({ "skills/demo/SKILL.md": skill("Show the logo."), "assets/icon.png": png, "assets/a.jpg": jpeg, "assets/b.gif": gif, "assets/c.webp": webp }));
+    assert.deepEqual(r.findings, []);
+    assert.deepEqual(r.inventory.images.sort(), ["assets/a.jpg", "assets/b.gif", "assets/c.webp", "assets/icon.png"]);
+    assert.deepEqual(r.inventory.binaries, []);
+  });
+
+  test("disguised, truncated or padded images are still flagged as binaries (S-013)", () => {
+    const pngStart = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    const pngEnd = Buffer.from([0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+    const png = Buffer.concat([pngStart, Buffer.from("IHDR"), Buffer.alloc(17), pngEnd]);
+    const r = scanSkills(
+      project({
+        "skills/demo/SKILL.md": skill("Show the logo."),
+        "assets/elf.png": Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00]),
+        "assets/padded.png": Buffer.concat([png, Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00])]),
+        "assets/truncated.png": png.subarray(0, 30),
+        "assets/renamed.gif": png,
+      }),
+    );
+    const flagged = r.findings.filter((f) => f.id === "S-013").map((f) => f.file).sort();
+    assert.deepEqual(flagged, ["assets/elf.png", "assets/padded.png", "assets/renamed.gif", "assets/truncated.png"]);
+    assert.deepEqual(r.inventory.images, []);
+  });
+
   test("a clean skill has no findings; the CLI exits 0 (and 1 when HIGH)", () => {
     const clean = project({ "skills/demo/SKILL.md": skill("Run `npx --yes realitygate audit` and explain the score. Never read `.env` files.") });
     assert.equal(scanSkills(clean).findings.length, 0);
