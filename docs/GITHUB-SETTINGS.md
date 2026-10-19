@@ -27,10 +27,11 @@ gh api -X PATCH repos/usmanmanii/realitygate \
   -f 'security_and_analysis[secret_scanning][status]=enabled' \
   -f 'security_and_analysis[secret_scanning_push_protection][status]=enabled'
 gh api -X PUT repos/usmanmanii/realitygate/private-vulnerability-reporting
+gh api -X PUT repos/usmanmanii/realitygate/vulnerability-alerts
 gh api -X PUT repos/usmanmanii/realitygate/automated-security-fixes
 ```
 
-Enable Dependabot alerts in **Settings → Advanced Security** if they are not enabled already. Some security features depend on repository visibility and plan; inspect the API response and the settings page. Vulnerabilities should go through the private reporting link in `SECURITY.md`, not a public issue.
+Dependabot alerts (`vulnerability-alerts`) must be enabled before automated security fixes; otherwise GitHub answers HTTP 422. Alerts cover every manifest in the repository, including the deliberately broken `examples/vibe-coded-app`, whose outdated dependencies are part of the example and are never installed by RealityGate. Some security features depend on repository visibility and plan; inspect the API response and the settings page. Vulnerabilities should go through the private reporting link in `SECURITY.md`, not a public issue.
 
 ## Rulesets
 
