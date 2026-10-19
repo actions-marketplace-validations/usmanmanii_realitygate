@@ -1,3 +1,9 @@
+---
+layout: default
+title: Claude Code guardrails
+description: Set up RealityGate hooks to block secret file access, destructive git commands, and out-of-scope edits.
+---
+
 # Claude Code guardrails: block .env access, force-push and out-of-scope edits
 
 **Short answer:** install the RealityGate plugin (`/plugin marketplace add usmanmanii/realitygate`,

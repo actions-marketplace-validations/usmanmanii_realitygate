@@ -1,3 +1,9 @@
+---
+layout: default
+title: How to check if AI-generated code is production ready
+description: Use RealityGate to score AI-generated code and identify stubs, fake data, invented packages, and leaked secrets.
+---
+
 # How to check if AI-generated code is production ready
 
 **Short answer:** run `npx realitygate audit` in the project folder. In about 30 seconds it gives

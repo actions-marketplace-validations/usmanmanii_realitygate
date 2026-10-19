@@ -1,3 +1,9 @@
+---
+layout: default
+title: How to detect hallucinated npm packages
+description: Find undeclared and potentially invented npm package imports in AI-generated code.
+---
+
 # How to detect hallucinated npm packages (slopsquatting)
 
 **Short answer:** `npx realitygate check` fails the build on any import of a package that no

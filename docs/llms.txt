@@ -1,0 +1,23 @@
+# RealityGate
+
+> RealityGate is an open-source, zero-dependency CLI, Claude Code plugin, and GitHub Action that checks AI-generated code for common fake or unfinished implementations. It gives JavaScript, TypeScript, and Python repositories a Reality Score from 0 to 100, fails a gate on detected violations, and includes a spec-driven Build OS. MIT licensed by Muhammad Usman.
+
+## Documentation
+
+- [Overview](https://usmanmanii.github.io/realitygate/): what RealityGate does and how to try it
+- [Full README](https://github.com/usmanmanii/realitygate/blob/main/README.md): installation, commands, rules, configuration, and FAQ
+- [Build OS](https://github.com/usmanmanii/realitygate/blob/main/BUILD-OS.md): spec-driven development workflow
+- [Failure Museum](https://github.com/usmanmanii/realitygate/blob/main/FAILURES.md): real AI coding failure patterns
+
+## Guides
+
+- [Check AI-generated code](https://usmanmanii.github.io/realitygate/guides/check-ai-generated-code.html)
+- [Detect hallucinated packages](https://usmanmanii.github.io/realitygate/guides/detect-hallucinated-packages.html)
+- [Claude Code guardrails](https://usmanmanii.github.io/realitygate/guides/claude-code-guardrails.html)
+
+## Key facts
+
+- Requires Node.js 20 or later and has zero runtime dependencies.
+- Commands include `audit`, `check`, `selftest`, `proof`, `review-pack`, `scan-skills`, `agents install`, `hooks install`, `init`, and `doctor`.
+- Runs locally with no telemetry and never reads `.env` file contents.
+- Pattern scans are heuristic and do not prove that a project is correct or secure.

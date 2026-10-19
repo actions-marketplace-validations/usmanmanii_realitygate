@@ -1,0 +1,9 @@
+title: RealityGate
+description: Check AI-generated code for stubs, fake data, invented packages, and leaked secrets.
+url: https://usmanmanii.github.io
+baseurl: /realitygate
+# Build OS working files and the VHS demo script are not site pages.
+exclude:
+  - IDEA.md
+  - input/
+  - demo.tape
