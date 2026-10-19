@@ -36,7 +36,7 @@ don't look for:
 3. **Fix the rest in fix-plan order**, re-running `audit` after each group to watch the score rise.
    In Claude Code with the plugin installed, ask: *"fix my reality audit findings"*.
 4. **Lock it in:** add `npx realitygate check` to CI (or the GitHub Action
-   `usmanmanii/realitygate@v0.1.0` with `min-score: 80`) so fake code can't come back.
+   `usmanmanii/realitygate@v0.2.0` with `min-score: 80`) so fake code can't come back.
 5. **Prove the gate works:** `npx realitygate selftest` plants a violation for every rule and
    fails if any rule stays silent.
 

@@ -2,7 +2,15 @@
 
 ## Unreleased
 
+## 0.2.0 — 2026-10-19
+
+The GitHub Marketplace release tagged `v1.0.0` was published by mistake from the 0.1.0 code and
+never reached npm. Release tags are immutable here, so it stays, but it is not a 1.0 release: use
+`usmanmanii/realitygate@v0.2.0` or later.
+
 ### Added
+- Project site at https://usmanmanii.github.io/realitygate/ with its own `llms.txt` and the three guides.
+- Plugin icon (`.claude-plugin/icon.png`) for Anthropic's plugin directory listing.
 - GitHub Flow contribution and release guidance, PR and issue templates, importable protection rulesets, and stable required CI checks.
 
 ### Fixed

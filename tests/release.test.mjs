@@ -28,7 +28,7 @@ describe("release metadata", () => {
   });
 
   test("every current GitHub Action version reference matches the package", () => {
-    const files = ["README.md", ...markdownFiles("skills"), ...markdownFiles("agent-skills"), ...markdownFiles("docs")];
+    const files = ["README.md", "llms.txt", ...markdownFiles("skills"), ...markdownFiles("agent-skills"), ...markdownFiles("docs")];
     const pattern = /usmanmanii\/realitygate@v(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)/g;
     let count = 0;
     for (const file of files) {
