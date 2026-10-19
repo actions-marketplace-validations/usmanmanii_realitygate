@@ -1,7 +1,7 @@
 {
   "name": "realitygate",
   "displayName": "RealityGate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Prove what your AI agent built is real: Reality Score audit, fake-code gate, gate self-test, Proof Ledger, cross-model review packs, guardrail hooks, and a spec-driven Build OS for vibe coding.",
   "author": {
     "name": "Muhammad Usman",

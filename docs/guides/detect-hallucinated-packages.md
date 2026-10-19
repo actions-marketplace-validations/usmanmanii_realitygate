@@ -52,7 +52,7 @@ Anything else is reported:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: usmanmanii/realitygate@v0.2.0
+- uses: usmanmanii/realitygate@v0.2.1
 ```
 
 Or anywhere with Node 20+: `npx realitygate check`.

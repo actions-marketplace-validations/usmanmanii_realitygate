@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: usmanmanii/realitygate@v0.2.0
+      - uses: usmanmanii/realitygate@v0.2.1
         with:
           min-score: 80      # fail below 80 (0 = report only)
 ```

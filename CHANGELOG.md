@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.1 — 2026-10-20
+
+### Changed
+- The changelog no longer names the plugin icon's file path. Anthropic's plugin directory held the
+  listing for review because a bundled image path appeared in backticks; no code changes.
+
 ## 0.2.0 — 2026-10-19
 
 The GitHub Marketplace release tagged `v1.0.0` was published by mistake from the 0.1.0 code and
@@ -10,7 +16,7 @@ never reached npm. Release tags are immutable here, so it stays, but it is not a
 
 ### Added
 - Project site at https://usmanmanii.github.io/realitygate/ with its own `llms.txt` and the three guides.
-- Plugin icon (`.claude-plugin/icon.png`) for Anthropic's plugin directory listing.
+- Plugin icon for Anthropic's plugin directory listing.
 - GitHub Flow contribution and release guidance, PR and issue templates, importable protection rulesets, and stable required CI checks.
 
 ### Fixed
