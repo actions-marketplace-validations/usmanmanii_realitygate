@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- GitHub Flow contribution and release guidance, PR and issue templates, importable protection rulesets, and stable required CI checks.
+
 ## 0.1.0 — 2026-10-19
 
 First release.

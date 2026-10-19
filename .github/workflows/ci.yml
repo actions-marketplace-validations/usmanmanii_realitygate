@@ -58,3 +58,17 @@ jobs:
 
       - name: Claude Code plugin validator (strict)
         run: npx --yes @anthropic-ai/claude-code plugin validate --strict .
+
+  passed:
+    name: CI passed
+    if: always()
+    needs: [gate, trust]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          GATE_RESULT: ${{ needs.gate.result }}
+          TRUST_RESULT: ${{ needs.trust.result }}
+        run: |
+          test "$GATE_RESULT" = success
+          test "$TRUST_RESULT" = success
