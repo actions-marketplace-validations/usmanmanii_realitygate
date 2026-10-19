@@ -8,6 +8,9 @@
 ### Fixed
 - `scan-skills` no longer flags complete PNG, JPEG, GIF and WebP images as unreviewable binaries (S-013); it lists them instead. Renamed, truncated or padded files are still flagged.
 
+### Security
+- CI workflow runs with a read-only `contents: read` token.
+
 ## 0.1.0 — 2026-10-19
 
 First release.
