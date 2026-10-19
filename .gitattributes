@@ -1,0 +1,4 @@
+# Check out text files with LF on every OS. Generated files (agent-skills/) are
+# compared byte-for-byte with LF output in tests, and shipped files should not
+# change line endings depending on who packed the release.
+* text=auto eol=lf

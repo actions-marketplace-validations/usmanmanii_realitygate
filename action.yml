@@ -1,5 +1,5 @@
-name: RealityGate
-description: Reality Score and fake-code gate for AI-built code. Fails on stubs, hallucinated packages, leaked secrets and unvalidated routes.
+name: RealityGate AI Code Reality Audit
+description: Score AI-built code and fail on stubs, hallucinated packages, leaked secrets, and unvalidated routes.
 author: Muhammad Usman
 branding:
   icon: shield
