@@ -27,8 +27,10 @@ ${c.bold("Usage")}
   realitygate selftest [dir] [--gate "<command>"]
       Proves every rule fires on a planted violation. With --gate, plants a
       canary in the project and requires your gate command to go red.
-  realitygate init [dir] [--force]
-      Copy BUILD-OS.md, START-HERE.md, docs/IDEA.md and a config into a project.
+  realitygate init [dir] [--srs <file>] [--force]
+      Copy BUILD-OS.md, START-HERE.md, docs/IDEA.md, the Build OS subagents
+      (.claude/agents/) and a config into a project. With --srs, also copy your
+      SRS or requirements document into docs/input/.
   realitygate hooks install [dir] [--git]
       Install Claude Code guardrail hooks (secrets, destructive git, allowlist,
       protected/applied-migration files) into .claude/. With --git, install a
@@ -58,7 +60,7 @@ ${c.bold("Options")}
 
 // Flags that take a value as the next argument; every other flag is boolean
 // unless written as --flag=value (e.g. --md=report.md).
-const VALUE_FLAGS = new Set(["config", "gate", "min-score", "base"]);
+const VALUE_FLAGS = new Set(["config", "gate", "min-score", "base", "srs"]);
 
 function parseArgs(argv) {
   const positional = [];
@@ -135,10 +137,13 @@ function main() {
       return result.ok ? 0 : 1;
     }
     case "init": {
-      const results = runInit(resolve(rest[0] ?? "."), { force: Boolean(flags.force) });
+      if (flags.srs === true) throw new ConfigError("--srs needs a file path, e.g. --srs ./SRS.pdf");
+      const results = runInit(resolve(rest[0] ?? "."), { force: Boolean(flags.force), srs: typeof flags.srs === "string" ? flags.srs : undefined });
       results.forEach((r) => out(`  ${r.action.padEnd(18)} ${r.file}`));
       out();
-      out("Next: fill in docs/IDEA.md, drop documents into docs/input/, then follow START-HERE.md.");
+      out(flags.srs
+        ? "Next: add any research or notes to docs/input/, then follow START-HERE.md (Phase 0)."
+        : "Next: put your SRS in docs/input/ (or fill in docs/IDEA.md if you have none), then follow START-HERE.md.");
       return 0;
     }
     case "hooks": {

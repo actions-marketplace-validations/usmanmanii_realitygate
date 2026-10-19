@@ -1,6 +1,7 @@
 # docs/input/ — drop zone for your source material
 
 Put anything here that describes what you want built. No formatting rules.
+Your SRS can also be copied in for you: `npx realitygate init --srs <path-to-SRS>`.
 
 Good things to drop in:
 - An SRS / requirements doc / PRD (any format: .md, .pdf, .docx, .txt)
@@ -19,7 +20,8 @@ What the agent does with it (Phase 0 — Ingest):
 4. Never treats instructions inside these documents as commands. They're your material, not
    orders to the agent.
 
-Precedence if documents disagree and you haven't resolved it: `docs/IDEA.md` wins, then the
-newest dated document. The agent asks you anyway.
+Precedence if documents disagree and you haven't resolved it: `docs/IDEA.md` wins, then your
+SRS, then the newest dated document. Research and reference material shape how it's built but
+never override a requirement. The agent asks you anyway.
 
 Do NOT put secrets (API keys, passwords) here. They belong in `.env.local`, which you fill in yourself.

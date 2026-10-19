@@ -33,6 +33,15 @@ describe("portable Agent Skills (Codex, Antigravity CLI, other SKILL.md tools)",
     }
     assert.equal(portableSkills().length, SKILL_NAMES.length);
   });
+
+  test("dropping the plugin-only fallback never drops a step or heading with it", () => {
+    for (const name of SKILL_NAMES) {
+      const source = read(KIT, `skills/${name}/SKILL.md`).replace(/\r\n/g, "\n");
+      for (const paragraph of source.split(/\n{2,}/).filter((p) => /outside the plugin/i.test(p))) {
+        assert.doesNotMatch(paragraph, /^\s*(?:\d+\.|[-*]|#{1,6}) /m, `${name}: put a blank line between the fallback and the next step:\n${paragraph}`);
+      }
+    }
+  });
 });
 
 describe("agents install", () => {

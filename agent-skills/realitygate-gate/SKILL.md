@@ -24,7 +24,7 @@ npx --yes realitygate selftest
 
 1. Create `realitygate.config.json` if missing:
    `npx --yes realitygate init`. That writes the config plus the
-   Build OS docs and never overwrites existing files. Set `include` to the app-source globs.
+   Build OS docs and subagents (`.claude/agents/`) and never overwrites existing files. Set `include` to the app-source globs.
 2. Turn each of the project's "never break" rules into a custom rule with a `canary`
    (see the README's configuration reference). Run `selftest` to prove each one fires.
 3. Guardrails:

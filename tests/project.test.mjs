@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { after, describe, test } from "node:test";
 import { runDoctor } from "../src/doctor.mjs";
 import { HOOKS, commandFor, installHooks } from "../src/hooks-install.mjs";
-import { KIT_FILES, runInit } from "../src/init.mjs";
-import { cli, hasGit, makeProject } from "./helpers.mjs";
+import { AGENT_NAMES, KIT_AGENTS, KIT_FILES, runInit } from "../src/init.mjs";
+import { KIT, cli, hasGit, makeProject } from "./helpers.mjs";
 
 const cleanups = [];
 after(() => cleanups.forEach((c) => c()));
@@ -19,7 +19,38 @@ describe("init", () => {
   test("copies the kit and a starter config", () => {
     const dir = project({});
     runInit(dir);
-    for (const f of [...KIT_FILES, "realitygate.config.json"]) assert.ok(existsSync(join(dir, f)), f);
+    for (const f of [...KIT_FILES, ...KIT_AGENTS.map((a) => a.to), "realitygate.config.json"]) assert.ok(existsSync(join(dir, f)), f);
+  });
+  test("every Build OS subagent has frontmatter Claude Code accepts (name matches file, description, tools)", () => {
+    for (const name of AGENT_NAMES) {
+      const text = readFileSync(join(KIT, "templates/agents", `${name}.md`), "utf8").replace(/\r\n/g, "\n");
+      const front = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1];
+      assert.ok(front, `${name}: frontmatter`);
+      assert.equal(/^name: (.+)$/m.exec(front)?.[1], name);
+      assert.ok((/^description: (.+)$/m.exec(front)?.[1] ?? "").length > 40, `${name}: description`);
+      assert.match(front, /^tools: [A-Za-z]+(, [A-Za-z]+)*$/m, `${name}: tools`);
+    }
+  });
+  test("--srs copies the requirements document into docs/input/ and never overwrites it", () => {
+    const source = project({ "My SRS.md": "# SRS v1\n" });
+    const srs = join(source, "My SRS.md");
+    const dir = project({});
+    const first = runInit(dir, { srs });
+    assert.equal(first.find((r) => r.file === "docs/input/My SRS.md").action, "created");
+    assert.equal(readFileSync(join(dir, "docs/input/My SRS.md"), "utf8"), "# SRS v1\n");
+    writeFileSync(srs, "# SRS v2\n");
+    const second = runInit(dir, { srs });
+    assert.equal(second.find((r) => r.file === "docs/input/My SRS.md").action, "skipped (exists)");
+    assert.equal(readFileSync(join(dir, "docs/input/My SRS.md"), "utf8"), "# SRS v1\n");
+  });
+  test("--srs refuses a missing file and secrets files, before writing anything", () => {
+    const dir = project({ ".env.local": "TOKEN=do-not-copy\n" });
+    assert.throws(() => runInit(dir, { srs: join(dir, "missing.pdf") }), /no such file/);
+    assert.throws(() => runInit(dir, { srs: join(dir, ".env.local") }), /secrets never go in docs\/input/);
+    assert.equal(existsSync(join(dir, "BUILD-OS.md")), false);
+    const r = cli(["init", dir, "--srs"]);
+    assert.equal(r.code, 2);
+    assert.match(r.stderr, /--srs needs a file path/);
   });
   test("never overwrites without --force", () => {
     const dir = project({ "docs/IDEA.md": "# my real idea\n" });
@@ -73,6 +104,13 @@ describe("doctor", () => {
     assert.equal(r.ok, true, JSON.stringify(r.results.filter((x) => x.status === "FAIL")));
     assert.equal(r.results.find((x) => x.name === "Phase 0").status, "WARN");
     assert.equal(r.results.find((x) => x.name === "docs/IDEA.md").status, "WARN", "template not filled in");
+    assert.equal(r.results.find((x) => x.name === "requirements input").status, "WARN", "no SRS and no idea yet");
+    writeFileSync(join(dir, "docs/input/SRS.md"), "# SRS\n");
+    const withSrs = runDoctor(dir).results;
+    const input = withSrs.find((x) => x.name === "requirements input");
+    assert.equal(input.status, "PASS");
+    assert.match(input.detail, /1 document/);
+    assert.equal(withSrs.find((x) => x.name === "docs/IDEA.md").status, "PASS", "IDEA.md is optional once an SRS is in docs/input/");
   });
 
   test("after Phase 0: validates STATE.json, agents, gate and hooks", { skip: !hasGit() && "git not installed" }, () => {

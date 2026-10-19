@@ -9,7 +9,7 @@
     {
       "name": "realitygate",
       "source": "./",
-      "description": "Reality Score audit, fake-code gate, gate self-test, Proof Ledger, cross-model review packs, guardrail hooks, and a spec-driven Build OS for vibe coding."
+      "description": "Reality Score audit, fake-code gate, gate self-test, Proof Ledger, cross-model review packs, guardrail hooks, and a spec-driven Build OS with six subagents that takes a solo founder from an SRS to a shipped MVP."
     }
   ]
 }

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+- `init --srs <file>` copies your SRS or requirements document into `docs/input/` (never overwrites it, refuses `.env*` files), and `doctor` reports whether any requirements input exists yet.
+- `init` installs the six Build OS subagents (`planner`, `spec-critic`, `verifier`, `security-auditor`, `drift-auditor`, `researcher`) into `.claude/agents/`, from tested templates instead of having Phase 0 write them.
+- Build OS: `start <path-to-SRS>` (asks where the SRS is when no path is given), `resume`, `prepare release` and `plan next release`; adopting an existing codebase (Phase 0.1b) instead of scaffolding over it; `docs/COSTS.md` with free-tier limits and a cost ceiling; `docs/RELEASE-READINESS.md` with the `CODE COMPLETE` / `RELEASE READY` / `LIVE DEPLOYED` states; the `DEFERRED` task status; and a standard run report.
+
+### Fixed
+- The portable `realitygate-build` skill (Codex, Antigravity and other Agent Skills tools) was missing the "fill in IDEA.md" and "execute Phase 0" steps: they were dropped together with the plugin-only fallback line. A test now guards every skill against this.
+
+### Changed
+- The `build` skill guides the start one question at a time and documents that Build OS commands are plain words, because `/status`, `/resume` and `/plan` are Claude Code built-ins and `/verify` is a bundled skill.
+
 ## 0.2.1 — 2026-10-20
 
 ### Changed

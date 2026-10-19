@@ -16,29 +16,37 @@ This kit is the generalised, upgraded version of the system used to build **Prox
 realitygate/
 ├── START-HERE.md          ← this file (how to run it)
 ├── BUILD-OS.md            ← the constitution: phases, agents, gates, state, templates
+├── .claude/agents/        ← planner, spec-critic, verifier, security-auditor, drift-auditor, researcher
 └── docs/
-    ├── IDEA.md            ← FILL THIS IN (rough is fine; the agent will interrogate you)
+    ├── IDEA.md            ← FILL THIS IN if you have no SRS (rough is fine; the agent will interrogate you)
     └── input/
-        └── README.md      ← drop ANY extra documents here (SRS, PDFs, notes, screenshots, competitor links)
+        └── README.md      ← put your SRS here, plus ANY extra documents (research, PDFs, notes, screenshots, competitor links)
 ```
 
 ## Step 1 — Make the project folder
 
 ```bash
 mkdir my-product && cd my-product && git init
-npx github:usmanmanii/realitygate init      # copies BUILD-OS.md, START-HERE.md, docs/, config
+npx github:usmanmanii/realitygate init --srs ../SRS.pdf   # kit, docs/, config, 6 subagents, your SRS
+                                                          # (no SRS yet? leave out --srs)
 npx github:usmanmanii/realitygate doctor    # checks everything is in place
 ```
 
 (No Node? Copy the **contents** of this kit into the folder by hand instead, so `BUILD-OS.md`
 sits at the repo root.)
 
+**Using the Claude Code plugin?** Skip Steps 1–3 and say *"start <path to your SRS>"*. Without a
+path, it asks where your SRS is and walks you through each step.
+
 **Already have an app?** Run `npx github:usmanmanii/realitygate audit` first. It gives you a
-Reality Score and a fix plan you can paste straight into your agent.
+Reality Score and a fix plan you can paste straight into your agent. Phase 0 then adopts your
+existing code instead of scaffolding a new app.
 
 ## Step 2 — Give it your idea
 
-1. Open `docs/IDEA.md` and fill in what you can. Skip what you don't know; write "unsure".
+1. **Have an SRS or requirements document?** It's the primary input: `init --srs` copied it to
+   `docs/input/` (or copy it there yourself). Otherwise open `docs/IDEA.md` and fill in what
+   you can. Skip what you don't know; write "unsure".
 2. Put any other material in `docs/input/`: an SRS, a pitch deck, voice-note transcripts,
    WhatsApp-style notes, screenshots of apps you like, a spreadsheet of prices, anything.
    The agent reads it all and tells you where your documents contradict each other.
@@ -48,26 +56,30 @@ Reality Score and a fix plan you can paste straight into your agent.
 ```
 Read BUILD-OS.md in full. Then read docs/IDEA.md and every file in docs/input/.
 Execute PHASE 0 (Ingest + Environment Probe + Profile) only. Do not skip ahead.
+If docs/input/ has an SRS, it is the primary requirements input.
 Explain everything to me in plain language — I am vibe coding and may not know
 the technical terms. Stop when Phase 0 exit criteria are met and print:
 (1) the contradictions/gaps you found in my documents,
-(2) the stack profile you recommend and why, in one paragraph,
+(2) the stack profile you recommend, why, and its monthly cost estimate, in one paragraph,
 (3) the accounts/keys I must create myself,
 (4) the first batch of Phase 1 questions.
 ```
 
 ## Step 4 — From then on, this is your whole vocabulary
 
+Type these as plain words, without a slash: `/status` and `/resume` are Claude Code's own commands.
+
 | You type | What happens |
 |---|---|
-| `continue` | Agent resumes exactly where it stopped (reads `.agent/STATE.json`) |
-| `status` | Where are we, % done, what's blocked, what needs *you* |
+| `continue` (or `resume`) | Agent resumes exactly where it stopped (reads `.agent/STATE.json`) |
+| `status` | Where are we, requirements verified (X / Y), what's blocked, what needs *you*, running cost |
 | `verify` | Runs every automated check; reports pass/fail; changes nothing |
 | `next` | Closes the finished task, opens the next one, stops |
 | `blocked` | Parks the current task with a reason, moves to the next unblocked one |
 | `replan` | Rebuilds the task list from the spec without touching code |
 | `checkpoint` | Every ~5 tasks: drift audit + full test run + "click through it yourself" list |
-| `ship` | Runs the release checklist with evidence for every line |
+| `ship` (or `prepare release`) | Runs the release checklist with evidence for every line and writes `docs/RELEASE-READINESS.md`. Never deploys for you |
+| `plan next release` | After R1 is release ready: plans R1.x/R2 from real feedback and usage |
 | `explain` | Explains the last change in plain language: what, why, and how to see it working |
 | `approve <id>` / `reject <id> <why>` | Answers a pending approval request |
 

@@ -5,8 +5,8 @@
 ### Your AI agent says it's done. Prove it.
 
 **A Reality Score for any AI-built codebase in 30 seconds, gates that fail the build on fake code,
-guardrail hooks for Claude Code, and a spec-driven operating system that takes vibe coders
-from idea to a real, shipped product.**
+guardrail hooks for Claude Code, and a spec-driven operating system with ready-made subagents
+that takes a solo founder from an SRS or idea to a real, shipped product.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://github.com/usmanmanii/realitygate/actions/workflows/ci.yml/badge.svg)](https://github.com/usmanmanii/realitygate/actions/workflows/ci.yml)
@@ -30,18 +30,34 @@ that proves whether AI-generated ("vibe-coded") code is real. It gives any JavaS
 or Python repository a **Reality Score from 0 to 100**. It fails the build on stubs, placeholder
 code, fake data, **hallucinated npm packages**, leaked secrets and unvalidated API routes, proves
 its own checks can fail, keeps a **Proof Ledger** of how every task was verified, and ships a
-spec-driven **Build OS** that takes vibe coders from idea to a shipped MVP.
+spec-driven **Build OS** that takes a solo founder from an **SRS** or idea to a shipped MVP on a
+near-zero budget, with six ready-made subagents doing the planning, review and research.
 
 | At a glance | |
 |---|---|
 | Works with | Claude Code (plugin) · Codex · Antigravity / Gemini CLI · Cursor · GitHub Copilot · any CI or git workflow |
 | Install | Claude Code plugin · `npx realitygate` · GitHub Action · Agent Skills · git pre-commit |
-| Commands | `audit` · `check` · `selftest` · `proof` · `review-pack` · `scan-skills` · `agents install` · `hooks install` · `init` · `doctor` |
+| Commands | `audit` · `check` · `selftest` · `proof` · `review-pack` · `scan-skills` · `agents install` · `hooks install` · `init [--srs]` · `doctor` |
+| Build OS | Start from your SRS · 6 subagents · cost estimate with free-tier limits · release-readiness states · resumes from disk |
 | Languages | JavaScript, TypeScript (incl. monorepos), Python (partial) |
 | Rules | 16 built-in + your own, each proven by a planted canary |
 | Privacy | Runs locally · no network · no telemetry · never reads `.env` contents |
 | Dependencies | 0 (Node ≥ 20 standard library) |
 | License | MIT © Muhammad Usman |
+
+### 🆕 New in v0.3.0: start from your SRS
+
+- **Say "start docs/SRS.pdf"** to `/realitygate:build` (or run `npx realitygate init --srs <file>`).
+  No path? It asks where your SRS is, or helps you write the idea down, then goes one step at a time.
+- **Six subagents installed for you** in `.claude/agents/`: `planner`, `spec-critic`, `verifier`,
+  `security-auditor`, `drift-auditor` and `researcher`.
+- **Built for one person on a small budget:** `docs/COSTS.md` lists every service's free-tier
+  limit, a rough cost at ~10,000 users and a cost ceiling ($0/month until you raise it).
+- **Honest finish line:** `ship` writes `docs/RELEASE-READINESS.md` and ends in exactly one state:
+  `CODE COMPLETE`, `RELEASE READY` or `LIVE DEPLOYED`.
+- **Existing apps too:** Phase 0 adopts your current code instead of scaffolding over it.
+
+Details: [The Build OS](#-the-build-os-idea--shipped-product) · [CHANGELOG](CHANGELOG.md)
 
 ---
 
@@ -84,7 +100,7 @@ Then just talk to Claude. The plugin's skills trigger on their own:
 | *"Is my app production ready?"* · *"audit this code"* · *"what's my reality score?"* | `/realitygate:audit` |
 | *"Fix the audit findings"* · *"make this app real"* | `/realitygate:fix` |
 | *"Stop fake code reaching main"* · *"protect my .env"* · *"add a quality gate to CI"* | `/realitygate:gate` |
-| *"Build an app from my idea"* · *"continue"* · *"ship"* (Build OS projects) | `/realitygate:build` |
+| *"Start docs/SRS.pdf"* · *"Build an app from my idea"* · *"continue"* · *"ship"* (Build OS projects) | `/realitygate:build` |
 | *"Get a second-opinion review"* · *"prove this task was really done"* | `/realitygate:review` |
 | *"Is this skill / plugin safe to install?"* | `/realitygate:scan` |
 
@@ -221,7 +237,7 @@ the Build OS, scores **100/100**, and so does this repo.
 | **`realitygate proof`** | **Proof Ledger.** For every DONE task, checks the journal for real evidence: failing tests first, green gate, APPROVED review, real execution, an existing commit. Writes `PROOF.md` + a "tasks verified" badge | Founders, agencies, reviewers: anyone who needs to *show* how AI-built code was verified |
 | **`realitygate review-pack`** | Bundles reviewer instructions + task spec + diff for a reviewer from a **different model family** (Claude builds, Codex reviews, or the reverse) | Anyone who doesn't want an AI grading its own homework |
 | **`realitygate hooks install`** | Claude Code guardrails: the agent physically can't read `.env`, force-push, `reset --hard`, edit files outside its task, or modify applied migrations | Claude Code users |
-| **`realitygate init` + `BUILD-OS.md`** | A spec-driven OS: idea and documents → spec → architecture → test-first build loop with adversarial review → ship → post-launch | Vibe coders building a new product |
+| **`realitygate init` + `BUILD-OS.md`** | A spec-driven OS: your SRS, idea and research → spec → architecture → test-first build loop with adversarial review → ship → post-launch. `--srs` adds your SRS; installs six subagents | Solo founders and vibe coders building a new product or finishing an existing one |
 | **`realitygate doctor`** | Checks the whole setup is wired correctly | Everyone using the OS |
 
 ---
@@ -346,7 +362,8 @@ Most AI-coding repos are **prompts asking the agent to behave**. This one ships
    *passing*. The OS uses an `AWAITING_REVIEW` status instead of marking work done on trust.
 6. **The whole lifecycle.** The OS covers idea → spec → architecture → release plan →
    test-first build → adversarial review → ship checklist → post-launch, with ceremony that
-   scales (`quick` / `standard` / `full` tracks).
+   scales (`quick` / `standard` / `full` tracks). It starts from your SRS, budgets for a
+   solo founder, and never calls something "release ready" without evidence.
 7. **Born from a real build.** Extracted from building a two-sided marketplace (mobile +
    web + double-entry ledger). Every rule names the failure it prevents.
 8. **Zero dependencies, zero lock-in.** Pure Node standard library. MIT. Works alongside
@@ -421,18 +438,30 @@ Every hook fails closed on unparsable input. Restart Claude Code after installin
 
 ## 🧭 The Build OS: idea → shipped product
 
-For new products, the CLI is the enforcement layer and `BUILD-OS.md` is the process.
+For new products, and for existing apps you want to finish, the CLI is the enforcement layer
+and `BUILD-OS.md` is the process. It's built for a solo founder on a near-zero budget.
+
+With the plugin, say *"start docs/SRS.pdf"* (or just *"build an app from my SRS"*). If you don't
+give a path, `/realitygate:build` asks where your SRS is, then sets everything up step by step.
+Without the plugin:
 
 ```bash
 mkdir my-app && cd my-app && git init
-npx github:usmanmanii/realitygate init        # BUILD-OS.md, START-HERE.md, docs/IDEA.md, config
+npx github:usmanmanii/realitygate init --srs ../SRS.pdf   # kit, 6 subagents, config, your SRS in docs/input/
 npx github:usmanmanii/realitygate doctor
 ```
 
-1. Fill in `docs/IDEA.md` (13 short sections; "unsure" is a valid answer).
-2. Drop any documents (SRS, PDFs, notes, screenshots) into `docs/input/`.
+1. Your SRS is the primary input. No SRS? Fill in `docs/IDEA.md` instead (13 short sections;
+   "unsure" is a valid answer).
+2. Drop any other documents (research, PDFs, notes, screenshots) into `docs/input/`.
 3. Open Claude Code and paste the kickoff prompt from [START-HERE.md](START-HERE.md).
 4. After that, you mostly type `continue`.
+
+`init` installs six subagents in `.claude/agents/`: `planner`, `spec-critic`, `verifier`,
+`security-auditor`, `drift-auditor` and `researcher`. Phase 0 writes `docs/COSTS.md`, a
+monthly cost estimate with free-tier limits and a cost ceiling, and `ship` writes
+`docs/RELEASE-READINESS.md`, which ends in exactly one state: `CODE COMPLETE`, `RELEASE READY`
+or `LIVE DEPLOYED`.
 
 ```
  PHASE 0  Ingest · Probe · Profile · Scaffold   reads every doc, flags contradictions, checks your
@@ -447,8 +476,9 @@ npx github:usmanmanii/realitygate doctor
  PHASE 7  Post-launch                           errors → funnel → feedback → triggers → replan
 ```
 
-**Your vocabulary:** `continue` · `status` · `verify` · `next` · `blocked` · `replan` ·
-`checkpoint` · `ship` · `explain` · `approve A-007` · `reject A-007 <why>`
+**Your vocabulary** (plain words, no slash): `start <SRS>` · `continue` / `resume` · `status` ·
+`verify` · `next` · `blocked` · `replan` · `checkpoint` · `ship` / `prepare release` ·
+`plan next release` · `explain` · `approve A-007` · `reject A-007 <why>`
 
 **What only you decide:** you approve the spec; you approve schema, auth, money, data
 deletion, dependencies and deploys, through plain-language approval cards with a
@@ -517,6 +547,10 @@ checks can fail. Use both.
 **Is this spec-driven development?** The Build OS is, plus what comes after the spec. The CLI
 is the verification layer you can add to any SDD tool.
 
+**I already have an SRS. How do I start?** With the plugin, say *"start path/to/SRS.pdf"*. Without
+it: `npx realitygate init --srs path/to/SRS.pdf`, then paste the kickoff prompt from
+[START-HERE.md](START-HERE.md). Research and notes go in `docs/input/` next to it.
+
 **Can I use it if I can't code?** That's the main audience. With the Claude Code plugin,
 ask *"is my app production ready?"*, then *"fix the findings"*.
 
@@ -556,7 +590,8 @@ deduction is capped, so one noisy area can't hide the others.
 - [x] Claude Code guardrail hooks · `init` · `doctor` · `quick`/`standard`/`full` tracks · EARS criteria
 - [x] Proof Ledger: `realitygate proof` → `PROOF.md` + "N/N tasks verified" badge
 - [x] Packaged cross-model review: `realitygate review-pack`
-- [x] Claude Code plugin (5 skills + hooks) · GitHub Action with job-summary report
+- [x] Claude Code plugin (6 skills + hooks) · GitHub Action with job-summary report
+- [x] Build OS from an SRS: `init --srs`, six subagents, cost estimate, release-readiness states, existing-code adoption
 - [ ] PR comment with the score delta
 - [ ] Read-only MCP server for any editor
 - [ ] Change mode for existing repos; guides for Spec Kit / OpenSpec / Superpowers users

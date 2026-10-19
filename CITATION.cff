@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use RealityGate, please cite it as below."
 title: "RealityGate: prove what your AI coding agent built is real"
-abstract: "An open-source CLI, Claude Code plugin and GitHub Action that scores AI-generated codebases (Reality Score), fails builds on fake code, hallucinated packages and leaked secrets, proves its own checks can fail with planted canaries, and provides a spec-driven Build OS for vibe coding."
+abstract: "An open-source CLI, Claude Code plugin and GitHub Action that scores AI-generated codebases (Reality Score), fails builds on fake code, hallucinated packages and leaked secrets, proves its own checks can fail with planted canaries, and provides a spec-driven Build OS, with six subagents, that takes a solo founder from a software requirements specification (SRS) to a shipped MVP."
 type: software
 authors:
   - given-names: Muhammad

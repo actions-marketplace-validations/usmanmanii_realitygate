@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { CONFIG_FILE, ConfigError, loadConfig } from "./config.mjs";
 import { isGitRepo } from "./files.mjs";
@@ -21,13 +21,22 @@ export function runDoctor(rootArg) {
   add("git repository", isGitRepo(root) ? "PASS" : "FAIL", isGitRepo(root) ? "ok" : "run `git init` first");
   add("BUILD-OS.md", has("BUILD-OS.md") ? "PASS" : "FAIL", has("BUILD-OS.md") ? "present" : "run `npx realitygate init`");
 
-  if (has("docs/IDEA.md")) {
-    const idea = read("docs/IDEA.md");
-    const unfilled = idea.includes("<product name>");
-    add("docs/IDEA.md", unfilled ? "WARN" : "PASS", unfilled ? "still the template — fill it in before Phase 0" : "filled in");
-  } else {
-    add("docs/IDEA.md", "WARN", "missing — run `npx realitygate init`");
-  }
+  const inputs = has("docs/input") ? readdirSync(join(root, "docs/input")).filter((f) => f !== "README.md") : [];
+  const ideaFilled = has("docs/IDEA.md") && !read("docs/IDEA.md").includes("<product name>");
+  if (!has("docs/IDEA.md")) add("docs/IDEA.md", "WARN", "missing — run `npx realitygate init`");
+  else if (ideaFilled) add("docs/IDEA.md", "PASS", "filled in");
+  else if (inputs.length) add("docs/IDEA.md", "PASS", "template (optional: the documents in docs/input/ are the input)");
+  else add("docs/IDEA.md", "WARN", "still the template — fill it in before Phase 0");
+
+  add(
+    "requirements input",
+    inputs.length || ideaFilled ? "PASS" : "WARN",
+    inputs.length
+      ? `${inputs.length} document(s) in docs/input/`
+      : ideaFilled
+        ? "docs/IDEA.md (no documents in docs/input/)"
+        : "no SRS or idea yet — put your SRS in docs/input/ (`realitygate init --srs <file>`) or fill in docs/IDEA.md",
+  );
 
   if (has(CONFIG_FILE)) {
     try {

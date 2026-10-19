@@ -30,6 +30,16 @@ It runs locally, has no runtime dependencies, sends no telemetry, and never read
 - **Codex, Gemini, Cursor, and Copilot:** run `npx github:usmanmanii/realitygate agents install` to add agent skills and project instructions.
 - **Any CI:** run the CLI’s `check` command or use the [GitHub Action](https://github.com/usmanmanii/realitygate#3-github-action-every-push-and-pr).
 
+## Build from your SRS
+
+The Build OS takes a solo founder from an SRS or idea to a shipped MVP. With the Claude Code plugin, say *"start path/to/SRS.pdf"*; without it, run:
+
+```bash
+npx github:usmanmanii/realitygate init --srs path/to/SRS.pdf
+```
+
+`init` copies your SRS into `docs/input/` and installs six subagents: planner, spec critic, verifier, security auditor, drift auditor, and researcher. The process estimates monthly costs against free tiers, works with existing code, and reports one honest state at the end: code complete, release ready, or live deployed. See the [Build OS section of the README](https://github.com/usmanmanii/realitygate#-the-build-os-idea--shipped-product).
+
 ## Guides
 {: #guides }
 

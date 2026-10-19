@@ -1,12 +1,12 @@
 # RealityGate
 
-> RealityGate is an open-source, zero-dependency CLI, Claude Code plugin, and GitHub Action that checks AI-generated code for common fake or unfinished implementations. It gives JavaScript, TypeScript, and Python repositories a Reality Score from 0 to 100, fails a gate on detected violations, and includes a spec-driven Build OS. MIT licensed by Muhammad Usman.
+> RealityGate is an open-source, zero-dependency CLI, Claude Code plugin, and GitHub Action that checks AI-generated code for common fake or unfinished implementations. It gives JavaScript, TypeScript, and Python repositories a Reality Score from 0 to 100, fails a gate on detected violations, and includes a spec-driven Build OS that takes a solo founder from an SRS or idea to a shipped MVP. MIT licensed by Muhammad Usman.
 
 ## Documentation
 
 - [Overview](https://usmanmanii.github.io/realitygate/): what RealityGate does and how to try it
 - [Full README](https://github.com/usmanmanii/realitygate/blob/main/README.md): installation, commands, rules, configuration, and FAQ
-- [Build OS](https://github.com/usmanmanii/realitygate/blob/main/BUILD-OS.md): spec-driven development workflow
+- [Build OS](https://github.com/usmanmanii/realitygate/blob/main/BUILD-OS.md): spec-driven development workflow from an SRS to a shipped MVP, with six subagents
 - [Failure Museum](https://github.com/usmanmanii/realitygate/blob/main/FAILURES.md): real AI coding failure patterns
 
 ## Guides
@@ -18,6 +18,6 @@
 ## Key facts
 
 - Requires Node.js 20 or later and has zero runtime dependencies.
-- Commands include `audit`, `check`, `selftest`, `proof`, `review-pack`, `scan-skills`, `agents install`, `hooks install`, `init`, and `doctor`.
+- Commands include `audit`, `check`, `selftest`, `proof`, `review-pack`, `scan-skills`, `agents install`, `hooks install`, `init` (with `--srs <file>` to add your SRS), and `doctor`.
 - Runs locally with no telemetry and never reads `.env` file contents.
 - Pattern scans are heuristic and do not prove that a project is correct or secure.
