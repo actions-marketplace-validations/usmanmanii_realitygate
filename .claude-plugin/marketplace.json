@@ -1,0 +1,15 @@
+{
+  "name": "realitygate",
+  "description": "RealityGate: prove what your AI coding agent built is real.",
+  "owner": {
+    "name": "Muhammad Usman",
+    "url": "https://github.com/usmanmanii"
+  },
+  "plugins": [
+    {
+      "name": "realitygate",
+      "source": "./",
+      "description": "Reality Score audit, fake-code gate, gate self-test, Proof Ledger, cross-model review packs, guardrail hooks, and a spec-driven Build OS for vibe coding."
+    }
+  ]
+}

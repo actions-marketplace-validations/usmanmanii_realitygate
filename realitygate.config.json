@@ -1,0 +1,37 @@
+{
+  "include": [
+    "bin/**/*.mjs",
+    "src/**/*.mjs",
+    "hooks/**/*.mjs"
+  ],
+  "exclude": [
+    {
+      "glob": "src/rules.mjs",
+      "reason": "defines the forbidden patterns, so it contains them by definition"
+    },
+    {
+      "glob": "src/selftest.mjs",
+      "reason": "contains the planted canary violations on purpose"
+    }
+  ],
+  "disable": [],
+  "mayBeEmpty": {},
+  "rules": [],
+  "fileRules": [],
+  "hooks": {
+    "protectedPaths": [],
+    "appliedMigrationsManifest": null
+  },
+  "trust": {
+    "ignore": [
+      {
+        "glob": "tests/**",
+        "reason": "test fixtures deliberately contain the attacks the guards and scanners must block (reading secret env files, force-push, pipe-to-shell)"
+      },
+      {
+        "glob": "src/skill-scan.mjs",
+        "reason": "defines the red-flag patterns this scanner looks for, so it contains them by definition"
+      }
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "name": "realitygate",
+  "version": "0.1.0",
+  "description": "Prove what your AI coding agent built is real: Reality Score audit, fake-code gate, gate self-test, Claude Code guardrail hooks, and a spec-driven build OS for vibe coding.",
+  "type": "module",
+  "bin": {
+    "realitygate": "bin/realitygate.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "hooks",
+    "BUILD-OS.md",
+    "START-HERE.md",
+    "docs/IDEA.md",
+    "docs/input/README.md",
+    "README.md",
+    "LICENSE",
+    "skills",
+    "llms.txt",
+    "templates",
+    "agent-skills"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node bin/realitygate.mjs check",
+    "selftest": "node bin/realitygate.mjs selftest",
+    "verify": "node --test && node bin/realitygate.mjs check && node bin/realitygate.mjs selftest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "vibe-coding",
+    "claude-code",
+    "spec-driven-development",
+    "ai-agents",
+    "agentic-coding",
+    "code-quality",
+    "ai-code-review",
+    "llm-hallucination",
+    "claude-code-hooks",
+    "agents-md",
+    "cursor",
+    "codex",
+    "mvp",
+    "tdd",
+    "static-analysis",
+    "ai-generated-code",
+    "code-audit",
+    "hallucinated-packages",
+    "slopsquatting",
+    "claude-code-plugin",
+    "claude-code-skills",
+    "github-action",
+    "proof-ledger",
+    "lovable",
+    "bolt",
+    "v0",
+    "openai-codex",
+    "gemini-cli",
+    "antigravity",
+    "agent-skills",
+    "github-copilot",
+    "pre-commit",
+    "skill-security",
+    "plugin-security",
+    "malware-scan",
+    "supply-chain-security",
+    "prompt-injection"
+  ],
+  "license": "MIT",
+  "author": "Muhammad Usman (https://github.com/usmanmanii)",
+  "homepage": "https://github.com/usmanmanii/realitygate#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usmanmanii/realitygate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/usmanmanii/realitygate/issues"
+  }
+}

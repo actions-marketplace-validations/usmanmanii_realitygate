@@ -1,0 +1,40 @@
+name: Release
+
+# Publishes to npm with provenance: npm shows a signed link from the package to
+# this exact repository, commit and workflow run, so users can verify that what
+# they install was built from public source and not from someone's laptop.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Release tag must match package.json and plugin.json versions
+        run: |
+          set -euo pipefail
+          PKG="v$(node -p "require('./package.json').version")"
+          PLUGIN="v$(node -p "require('./.claude-plugin/plugin.json').version")"
+          test "$PKG" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != package.json $PKG"; exit 1; }
+          test "$PLUGIN" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != plugin.json $PLUGIN"; exit 1; }
+
+      - run: npm test
+      - run: node bin/realitygate.mjs check
+      - run: node bin/realitygate.mjs scan-skills . --strict
+
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

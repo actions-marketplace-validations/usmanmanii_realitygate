@@ -1,0 +1,63 @@
+name: RealityGate
+description: Reality Score and fake-code gate for AI-built code. Fails on stubs, hallucinated packages, leaked secrets and unvalidated routes.
+author: Muhammad Usman
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  path:
+    description: Directory to audit (relative to the repository root)
+    default: "."
+  min-score:
+    description: Fail the job when the Reality Score is below this number (0 disables)
+    default: "0"
+  check:
+    description: Also run the Reality Gate (`realitygate check`), which fails on any violation
+    default: "true"
+  selftest:
+    description: Also prove every rule can fail (`realitygate selftest`)
+    default: "true"
+
+outputs:
+  score:
+    description: Reality Score (0-100)
+    value: ${{ steps.audit.outputs.score }}
+  grade:
+    description: Letter grade (A-F)
+    value: ${{ steps.audit.outputs.grade }}
+
+runs:
+  using: composite
+  steps:
+    - id: audit
+      shell: bash
+      env:
+        RG_PATH: ${{ inputs.path }}
+        RG_MIN: ${{ inputs.min-score }}
+      run: |
+        set -euo pipefail
+        node --version
+        node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" audit "$RG_PATH" --json --md="$RUNNER_TEMP/reality-audit.md" > "$RUNNER_TEMP/reality-audit.json"
+        cat "$RUNNER_TEMP/reality-audit.md" >> "$GITHUB_STEP_SUMMARY"
+        SCORE=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).score)' "$RUNNER_TEMP/reality-audit.json")
+        GRADE=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).grade)' "$RUNNER_TEMP/reality-audit.json")
+        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+        echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+        echo "Reality Score: $SCORE/100 ($GRADE)"
+        if [ "$RG_MIN" -gt 0 ] && [ "$SCORE" -lt "$RG_MIN" ]; then
+          echo "::error title=RealityGate::Reality Score $SCORE is below the required $RG_MIN"
+          exit 1
+        fi
+
+    - if: ${{ inputs.check == 'true' }}
+      shell: bash
+      env:
+        RG_PATH: ${{ inputs.path }}
+      run: node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" check "$RG_PATH"
+
+    - if: ${{ inputs.selftest == 'true' }}
+      shell: bash
+      env:
+        RG_PATH: ${{ inputs.path }}
+      run: node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" selftest "$RG_PATH"

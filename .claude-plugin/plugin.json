@@ -1,0 +1,23 @@
+{
+  "name": "realitygate",
+  "displayName": "RealityGate",
+  "version": "0.1.0",
+  "description": "Prove what your AI agent built is real: Reality Score audit, fake-code gate, gate self-test, Proof Ledger, cross-model review packs, guardrail hooks, and a spec-driven Build OS for vibe coding.",
+  "author": {
+    "name": "Muhammad Usman",
+    "url": "https://github.com/usmanmanii"
+  },
+  "homepage": "https://github.com/usmanmanii/realitygate#readme",
+  "repository": "https://github.com/usmanmanii/realitygate",
+  "license": "MIT",
+  "keywords": [
+    "vibe-coding",
+    "code-audit",
+    "ai-code-quality",
+    "hallucinated-packages",
+    "guardrails",
+    "spec-driven-development",
+    "tdd",
+    "code-review"
+  ]
+}

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Tests
+        run: npm test
+
+      - name: Reality Gate (dogfood)
+        run: node bin/realitygate.mjs check
+
+      - name: Gate self-test, including a planted canary against our own gate
+        run: node bin/realitygate.mjs selftest --gate "node bin/realitygate.mjs check"
+
+      - name: Audit the deliberately broken example (must find problems)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if node bin/realitygate.mjs audit examples/vibe-coded-app --min-score 50; then
+            echo "The broken example scored >= 50 — the audit has lost its teeth." && exit 1
+          fi
+
+  trust:
+    # Supply-chain checks: the official validators plus RealityGate's own red-flag scan.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Red-flag scan of every skill, hook and script we ship
+        run: node bin/realitygate.mjs scan-skills . --strict
+
+      - name: Agent Skills reference validator (skills-ref) on every skill
+        run: |
+          for d in skills/*/ agent-skills/*/; do
+            pipx run --spec "git+https://github.com/agentskills/agentskills#subdirectory=skills-ref" skills-ref validate "$d"
+          done
+
+      - name: Claude Code plugin validator (strict)
+        run: npx --yes @anthropic-ai/claude-code plugin validate --strict .

@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use RealityGate, please cite it as below."
+title: "RealityGate: prove what your AI coding agent built is real"
+abstract: "An open-source CLI, Claude Code plugin and GitHub Action that scores AI-generated codebases (Reality Score), fails builds on fake code, hallucinated packages and leaked secrets, proves its own checks can fail with planted canaries, and provides a spec-driven Build OS for vibe coding."
+type: software
+authors:
+  - given-names: Muhammad
+    family-names: Usman
+    alias: usmanmanii
+repository-code: "https://github.com/usmanmanii/realitygate"
+url: "https://github.com/usmanmanii/realitygate"
+license: MIT
+version: 0.1.0
+date-released: 2026-10-19
+keywords:
+  - vibe coding
+  - AI-generated code
+  - code quality
+  - hallucinated packages
+  - slopsquatting
+  - Claude Code
+  - spec-driven development
+  - static analysis

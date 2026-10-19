@@ -1,0 +1,25 @@
+name: "False positive: RealityGate flagged legitimate code"
+description: A noisy gate gets switched off, so false positives are treated as bugs.
+title: "False positive: R-"
+labels: ["false-positive"]
+body:
+  - type: input
+    id: rule
+    attributes:
+      label: Rule ID
+      placeholder: R-005
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: The legitimate code that was flagged
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this code is correct
+    validations:
+      required: true

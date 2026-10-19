@@ -1,0 +1,30 @@
+name: "Failure story: my agent did X and nothing caught it"
+description: Report a way AI-generated code faked being done. Confirmed reports become rules, canaries and FAILURES.md entries credited to you.
+title: "Failure: "
+labels: ["failure-story"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What the agent produced
+      description: A minimal code snippet. Remove anything private, and never paste secrets.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why nothing caught it
+      description: Which tools or checks ran, and why they stayed green.
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: Suggested rule
+      description: How could a deterministic check detect it? A regex, a file-level condition, a project check…
+  - type: input
+    id: agent
+    attributes:
+      label: Agent / tool
+      placeholder: Claude Code, Cursor, Codex, Lovable, Bolt, v0…
