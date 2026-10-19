@@ -10,7 +10,7 @@
 ## Version control
 
 - Wait for the user's explicit approval before any commit, push, pull request, GitHub settings change, tag, or release.
-- Once approved, start a short-lived branch from `main` for each change and follow [CONTRIBUTING.md](CONTRIBUTING.md).
+- Once approved, start a short-lived branch from `main` for each change and follow [CONTRIBUTING.md](../CONTRIBUTING.md).
 - Use a Conventional Commit PR title and squash merge through a PR with the repository template.
 - Never push directly to `main`, force-push, delete version tags, or skip hooks.
 - Run the verification commands before requesting approval for version control or publishing actions.
