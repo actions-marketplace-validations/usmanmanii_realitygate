@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a defect that is not a false positive or an uncaught AI failure.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the behavior and include a minimal reproduction. Remove private data and never paste secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: RealityGate and Node versions
+      placeholder: RealityGate 0.1.0, Node 22
+    validations:
+      required: true
