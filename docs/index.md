@@ -20,7 +20,7 @@ The audit reports a score, file and line references, and a fix plan. To fail CI 
 
 ## What it checks
 
-RealityGate has 16 built-in rules for unfinished implementations, placeholder copy, fake data, undeclared imports, leaked credentials, swallowed errors, unvalidated routes, and other common AI coding failures. `selftest` plants violations to prove the rules can fail. `scan-skills` checks skills and plugins for known security red flags before installation.
+RealityGate has 22 built-in rules for unfinished implementations, null-only service stubs, placeholder copy, fake data, undeclared or never-installed packages, leaked credentials, swallowed errors, unvalidated routes, undocumented env vars, unwired code, tests that can't fail, and other common AI coding failures, in JavaScript, TypeScript, Python and Go. Its report keeps the static score apart from the checks that actually ran. `selftest` plants violations to prove the rules can fail. `scan-skills` checks skills and plugins for known security red flags before installation.
 
 It runs locally, has no runtime dependencies, sends no telemetry, and never reads `.env` file contents. Pattern checks are heuristic: a clean result does not prove that an app is correct or secure.
 
@@ -46,5 +46,8 @@ npx github:usmanmanii/realitygate init --srs path/to/SRS.pdf
 - [Check whether AI-generated code is production ready]({{ '/guides/check-ai-generated-code.html' | relative_url }})
 - [Detect hallucinated npm packages]({{ '/guides/detect-hallucinated-packages.html' | relative_url }})
 - [Set up Claude Code guardrails]({{ '/guides/claude-code-guardrails.html' | relative_url }})
+- [Use RealityGate with Spec Kit]({{ '/guides/use-with-spec-kit.html' | relative_url }})
+- [Use RealityGate with OpenSpec]({{ '/guides/use-with-openspec.html' | relative_url }})
+- [Use RealityGate with Superpowers]({{ '/guides/use-with-superpowers.html' | relative_url }})
 
 See the [complete README](https://github.com/usmanmanii/realitygate/blob/main/README.md) for installation options, every rule, and the Build OS.

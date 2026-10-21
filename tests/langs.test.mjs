@@ -1,0 +1,134 @@
+import assert from "node:assert/strict";
+import { after, describe, test } from "node:test";
+import { DEFAULT_CONFIG } from "../src/config.mjs";
+import { listFiles } from "../src/files.mjs";
+import { extractGoImports, extractPythonImports } from "../src/langs.mjs";
+import { scanFiles, selectSources } from "../src/scan.mjs";
+import { makeProject } from "./helpers.mjs";
+
+const cleanups = [];
+after(() => cleanups.forEach((c) => c()));
+
+function scan(files) {
+  const p = makeProject(files);
+  cleanups.push(p.cleanup);
+  const cfg = { ...structuredClone(DEFAULT_CONFIG), disable: ["R-018"] };
+  const allFiles = listFiles(p.dir);
+  const { files: sources } = selectSources(p.dir, cfg, allFiles);
+  return scanFiles(p.dir, sources, cfg, { allFiles });
+}
+const hits = (findings, rule) => findings.filter((f) => f.rule === rule).map((f) => `${f.file}:${f.line} ${f.text}`);
+
+describe("Python imports (R-014)", () => {
+  test("extracts top-level imports, skips relative and indented ones", () => {
+    const src = "import os, json as j\nfrom requests import get\nfrom . import local\nfrom .models import X\ntry:\n    import ujson\nexcept ImportError:\n    ujson = None\n";
+    assert.deepEqual(extractPythonImports(src).map((i) => `${i.specifier}@${i.line}`), ["os@1", "json@1", "requests@2"]);
+  });
+
+  test("flags an invented package; stdlib, declared, aliased, namespaced and local imports pass", () => {
+    const f = scan({
+      "requirements.txt": "requests==2.32.3\nPillow>=10\nPyYAML\nbeautifulsoup4\nscikit-learn\npython-dotenv\ngoogle-cloud-storage\n# comment\n-r base.txt\n",
+      "app/__init__.py": "",
+      "app/models.py": "X = 1\n",
+      "app/main.py":
+        "import os\nimport asyncio\nimport requests\nfrom PIL import Image\nimport yaml\nfrom bs4 import BeautifulSoup\nfrom sklearn import svm\nfrom dotenv import load_dotenv\nfrom google.cloud import storage\nfrom app import models\nimport fastjsonx_pro\nfrom huggingface_utils_ai import pipeline\n",
+    });
+    assert.deepEqual(hits(f, "R-014"), ['app/main.py:11 import "fastjsonx_pro"', 'app/main.py:12 import "huggingface_utils_ai"']);
+  });
+
+  test("reads pyproject (PEP 621, optional deps, dependency groups, Poetry) and Pipfile", () => {
+    const f = scan({
+      "pyproject.toml":
+        '[project]\nname = "svc"\nkeywords = ["httpx-fake"]\ndependencies = [\n  "fastapi>=0.115",\n  "pydantic-settings",\n]\n\n[project.optional-dependencies]\ndev = ["pytest"]\n\n[dependency-groups]\nlint = ["ruff"]\n\n[tool.poetry.dependencies]\npython = "^3.12"\nsqlalchemy = "^2.0"\n',
+      "Pipfile": '[packages]\nredis = "*"\n',
+      "svc/api.py": "import fastapi\nimport pydantic_settings\nimport pytest\nimport ruff\nimport sqlalchemy\nimport redis\nimport httpx_fake\n",
+    });
+    assert.deepEqual(hits(f, "R-014"), ['svc/api.py:7 import "httpx_fake"'], "keywords are not dependencies");
+  });
+
+  test("silent when the project has no Python dependency manifest", () => {
+    assert.deepEqual(hits(scan({ "main.py": "import made_up_pkg\n" }), "R-014"), []);
+  });
+});
+
+describe("Go (R-014, R-013)", () => {
+  test("extracts single and grouped imports with aliases", () => {
+    const src = 'package x\n\nimport "fmt"\nimport (\n\tlog "github.com/sirupsen/logrus"\n\t_ "embed"\n\t"net/http"\n)\n';
+    assert.deepEqual(extractGoImports(src).map((i) => i.specifier), ["fmt", "github.com/sirupsen/logrus", "embed", "net/http"]);
+  });
+
+  test("stdlib, own module, required and replaced modules pass; an invented module is flagged", () => {
+    const f = scan({
+      "go.mod": "module github.com/acme/shop\n\ngo 1.22\n\nrequire (\n\tgithub.com/google/uuid v1.6.0\n\tgolang.org/x/sync v0.8.0 // indirect\n)\n\nrequire github.com/lib/pq v1.10.9\n\nreplace example.com/fork => ../fork\n",
+      "internal/store/store.go": 'package store\n\nimport (\n\t"context"\n\t"database/sql"\n\n\t"example.com/fork/pkg"\n\t"github.com/acme/shop/internal/auth"\n\t"github.com/google/uuid"\n\t"github.com/lib/pq"\n\t"golang.org/x/sync/errgroup"\n\t"github.com/fastgo-ai/ormx"\n)\n',
+    });
+    assert.deepEqual(hits(f, "R-014"), ['internal/store/store.go:12 import "github.com/fastgo-ai/ormx"']);
+  });
+
+  test("an empty `if err != nil {}` and `_ = err` are swallowed errors; a handled error is not", () => {
+    const f = scan({
+      "a.go": 'package a\n\nimport "os"\n\nfunc A() error {\n\t_, err := os.Open("x")\n\tif err != nil {\n\t}\n\t_ = err\n\tif err != nil {\n\t\treturn err\n\t}\n\treturn nil\n}\n',
+    });
+    assert.deepEqual(hits(f, "R-013").map((h) => h.split(" ")[0]), ["a.go:7", "a.go:9"]);
+  });
+
+  test("_test.go, *.pb.go and files marked `Code generated … DO NOT EDIT.` are not app code", () => {
+    const f = scan({
+      "go.mod": "module example.com/x\n\ngo 1.22\n",
+      "a_test.go": 'package a\n\nimport "github.com/stretchr/testify/assert"\n// TODO more cases\n',
+      "api/v1/api.pb.go": 'package v1\n\nimport "google.golang.org/protobuf/proto"\n',
+      "db/query.sql.go": '// Code generated by sqlc. DO NOT EDIT.\npackage db\n\nimport "github.com/jackc/pgx/v5"\n',
+      "ok.go": "package a\n",
+    });
+    assert.deepEqual(f, []);
+  });
+
+  test("os.Getenv reads are checked against .env.example (R-017)", () => {
+    const f = scan({ ".env.example": "DATABASE_URL=\n", "main.go": 'package main\n\nimport "os"\n\nvar a = os.Getenv("DATABASE_URL")\nvar b, _ = os.LookupEnv("STRIPE_KEY")\n' });
+    assert.deepEqual(hits(f, "R-017"), ["main.go:6 STRIPE_KEY is not listed in .env.example"]);
+  });
+});
+
+describe("deeper Python rules", () => {
+  test("# type: ignore, # noqa and # pylint: disable need justified:; Python's Any is not flagged", () => {
+    const f = scan({
+      "svc/a.py":
+        "from typing import Any\nX = 1  # type: ignore\nY = 2  # noqa: E501\nZ = 3  # pylint: disable=invalid-name\n\n\ndef f(v: Any) -> Any:\n    return v\n\n\ndef g(v: Any) -> int:  # justified: JSON boundary, validated below\n    return 1\n\n\nAnything = 1\nrows: list[Any] = []\n",
+    });
+    assert.deepEqual(hits(f, "R-006").map((h) => h.split(" ")[0]), ["svc/a.py:2"]);
+    assert.deepEqual(hits(f, "R-007").map((h) => h.split(" ")[0]), ["svc/a.py:3", "svc/a.py:4"]);
+    // Gradual typing uses Any routinely; unlike TypeScript's any it is not a smell on its own.
+    assert.deepEqual(hits(f, "R-008"), []);
+  });
+
+  test("Flask and Django handlers reading raw input without validation are flagged (R-015)", () => {
+    const f = scan({
+      "api/app.py": 'from flask import Flask, request\n\napp = Flask(__name__)\n\n\n@app.post("/orders")\ndef create():\n    return {"sku": request.json["sku"]}\n',
+      "shop/views.py": "from django.http import JsonResponse\n\n\ndef order(request):\n    return JsonResponse({'sku': request.POST['sku']})\n",
+    });
+    assert.deepEqual(hits(f, "R-015").map((h) => h.split(" ")[0]), ["api/app.py:8", "shop/views.py:5"]);
+  });
+
+  test("json.load, yaml.load and pickle.load are decoding, not validation (R-015)", () => {
+    for (const call of ['json.load(request.files["f"])', "yaml.load(request.data)", "pickle.load(request.files['f'])"]) {
+      const f = scan({ "api/app.py": `import json\n\nfrom flask import Flask, request\n\napp = Flask(__name__)\n\n\n@app.post("/orders")\ndef create():\n    return ${call}\n` });
+      assert.deepEqual(hits(f, "R-015").map((h) => h.split(" ")[0]), ["api/app.py:10"], call);
+    }
+  });
+
+  test("a marshmallow schema's .load and a custom .validate still count as validation (R-015)", () => {
+    for (const call of ["OrderSchema().load(request.json)", "self.schema.load(request.json)", "validator.validate(request.json)"]) {
+      const f = scan({ "api/app.py": `from flask import Flask, request\n\napp = Flask(__name__)\n\n\n@app.post("/orders")\ndef create():\n    return ${call}\n` });
+      assert.deepEqual(hits(f, "R-015"), [], call);
+    }
+  });
+
+  test("pydantic, FastAPI typed bodies, Django forms and DRF serializers count as validation", () => {
+    const f = scan({
+      "api/app.py": 'from flask import Flask, request\nfrom pydantic import BaseModel\n\napp = Flask(__name__)\n\n\nclass Order(BaseModel):\n    sku: str\n\n\n@app.post("/orders")\ndef create():\n    return Order.model_validate(request.json).model_dump()\n',
+      "api/fast.py": 'from fastapi import FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\n\nclass Order(BaseModel):\n    sku: str\n\n\n@app.post("/orders")\nasync def create(order: Order) -> Order:\n    return order\n',
+      "shop/views.py": "from django import forms\n\n\nclass OrderForm(forms.Form):\n    sku = forms.CharField()\n\n\ndef order(request):\n    form = OrderForm(request.POST)\n    return form.is_valid()\n",
+    });
+    assert.deepEqual(hits(f, "R-015"), []);
+  });
+});

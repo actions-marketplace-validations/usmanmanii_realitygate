@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, join, sep } from "node:path";
+import { basename, join } from "node:path";
 
 const SKIP_DIRS = new Set([
   "node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".svelte-kit",
@@ -10,12 +10,10 @@ const SKIP_DIRS = new Set([
 
 const MAX_FILE_BYTES = 1024 * 1024;
 
-export const SOURCE_EXT = /\.(?:[cm]?[jt]sx?|py)$/;
+export const SOURCE_EXT = /\.(?:[cm]?[jt]sx?|py|go)$/;
 export const TS_EXT = /\.(?:[cm]?tsx?)$/;
 export const JS_TS_EXT = /\.(?:[cm]?[jt]sx?)$/;
 export const CONFIG_TEXT_EXT = /\.(?:json|ya?ml|toml)$/;
-
-export const toPosix = (p) => p.split(sep).join("/");
 
 /** `.env`, `.env.local`, … but not `.env.example` / `.sample` / `.template`. */
 export function isSecretEnvFile(path) {
@@ -28,7 +26,7 @@ export function isTestFile(path) {
     /(?:^|\/)(?:tests?|__tests__|__mocks__|e2e|spec|specs|fixtures?|cypress|playwright)\//.test(path) ||
     /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path) ||
     /(?:^|\/)test_[^/]*\.py$/.test(path) ||
-    /_test\.py$/.test(path)
+    /_test\.(?:py|go)$/.test(path)
   );
 }
 

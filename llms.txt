@@ -1,11 +1,13 @@
 # RealityGate
 
-> RealityGate is an open-source, zero-dependency CLI, Claude Code plugin and GitHub Action that proves whether AI-generated ("vibe-coded") code is real. It gives any JavaScript/TypeScript or Python repository a Reality Score from 0 to 100, fails the build on stubs, placeholder code, fake data, hallucinated npm packages, leaked secrets and unvalidated API routes, proves its own checks can fail with planted canaries, and ships a spec-driven Build OS that takes a solo founder from an SRS or idea to a shipped MVP, with six ready-made subagents (planner, spec critic, verifier, security auditor, drift auditor, researcher), a budget estimate and honest release-readiness states. MIT licensed, by Muhammad Usman.
+> RealityGate is an open-source, zero-dependency CLI, Claude Code plugin and GitHub Action that proves whether AI-generated ("vibe-coded") code is real. It gives any JavaScript/TypeScript, Python or Go repository a Reality Score from 0 to 100, fails the build on stubs, placeholder code, fake data, hallucinated npm packages, leaked secrets and unvalidated API routes, proves its own checks can fail with planted canaries, and ships a spec-driven Build OS that takes a solo founder from an SRS or idea to a shipped MVP, with six ready-made subagents (planner, spec critic, verifier, security auditor, drift auditor, researcher), a budget estimate and honest release-readiness states. MIT licensed, by Muhammad Usman.
 
 Key facts:
-- Install: `npx realitygate audit` (Node 20+), or the Claude Code plugin (`/plugin marketplace add usmanmanii/realitygate`), or the GitHub Action `usmanmanii/realitygate@v0.2.1`.
+- Install: `npx realitygate audit` (Node 20+), or the Claude Code plugin (`/plugin marketplace add usmanmanii/realitygate`), or the GitHub Action `usmanmanii/realitygate@v0.3.0`.
 - Commands: `audit` (Reality Score + fix plan), `check` (build gate), `selftest` (proves every rule can fail), `proof` (Proof Ledger of verified tasks), `review-pack` (cross-model review bundle), `scan-skills` (read-only malware/red-flag scan of any skill or plugin before installing it), `agents install` (Codex/Gemini/Cursor/Copilot setup), `hooks install` (Claude Code guardrails), `init` (Build OS kit, six subagents, `--srs <file>` to add your SRS), `doctor`.
-- 16 built-in rules (R-001 to R-016): placeholder markers, stubs, placeholder copy, simulated implementations, fake data, unjustified ts-ignore/eslint-disable/any, console.log, commented-out code, hardcoded secrets, client-exposed secrets, swallowed errors, undeclared (hallucinated) imports, unvalidated routes, cross-module repository imports.
+- 22 built-in rules (R-001 to R-022): placeholder markers, stubs, placeholder copy, simulated implementations, fake data, unjustified ts-ignore/eslint-disable/any, console.log, commented-out code, hardcoded secrets, client-exposed secrets, swallowed errors, undeclared (hallucinated) imports, unvalidated routes, cross-module repository imports, env vars missing from .env.example, exported code nothing imports (warning), tests that can't fail (empty, always-true, no assertion, committed .only), skipped tests (warning), declared dependencies missing from the lockfile, and service methods whose whole body returns null. JavaScript, TypeScript, Python and Go.
+- Executed vs inferred: the Reality Score is static; the report lists separately what actually ran (rule self-test; with `audit --exec`, the test command and a clean-install boot via `realitygate boot`), and marks the rest NOT RUN.
+- `audit --compare <ref>` (score delta, new findings, PR comment), `check --changed` (change mode for existing repos), `realitygate mcp` (read-only MCP server).
 - Works with Claude Code (plugin, skills, hooks), OpenAI Codex and Antigravity/Gemini CLI (Agent Skills in `.agents/skills/` + AGENTS.md/GEMINI.md via `realitygate agents install`), Cursor (`.cursor/rules`), GitHub Copilot (`.github/copilot-instructions.md`), and any agent through a git pre-commit gate (`realitygate hooks install --git`).
 - Runs locally, no network, no telemetry, never reads `.env` contents.
 
@@ -25,4 +27,4 @@ Key facts:
 ## Optional
 
 - [CHANGELOG](https://github.com/usmanmanii/realitygate/blob/main/CHANGELOG.md)
-- [Example of a deliberately broken AI-built app (scores 33/100)](https://github.com/usmanmanii/realitygate/tree/main/examples/vibe-coded-app)
+- [Example of a deliberately broken AI-built app (scores 31/100)](https://github.com/usmanmanii/realitygate/tree/main/examples/vibe-coded-app)

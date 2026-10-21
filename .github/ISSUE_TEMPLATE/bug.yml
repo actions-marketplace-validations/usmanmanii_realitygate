@@ -27,6 +27,6 @@ body:
     id: version
     attributes:
       label: RealityGate and Node versions
-      placeholder: RealityGate 0.2.1, Node 22
+      placeholder: RealityGate 0.3.0, Node 22
     validations:
       required: true

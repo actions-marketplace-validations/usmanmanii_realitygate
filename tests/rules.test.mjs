@@ -8,10 +8,13 @@ import { FAKE_AWS_KEY, FAKE_STRIPE_KEY, makeProject } from "./helpers.mjs";
 const cleanups = [];
 after(() => cleanups.forEach((c) => c()));
 
+// R-018 (unwired code) judges a whole project: these one-file fixtures export
+// names nothing imports by construction, so it is off here and tested on
+// complete projects in unwired.test.mjs.
 function scan(files, config = {}) {
   const p = makeProject(files);
   cleanups.push(p.cleanup);
-  const cfg = { ...structuredClone(DEFAULT_CONFIG), ...config };
+  const cfg = { ...structuredClone(DEFAULT_CONFIG), disable: ["R-018"], ...config };
   const allFiles = listFiles(p.dir);
   const { files: sources } = selectSources(p.dir, cfg, allFiles);
   return scanFiles(p.dir, sources, cfg, { allFiles });
@@ -78,6 +81,52 @@ describe("file rules", () => {
     });
     assert.deepEqual(rulesIn(f), []);
   });
+  test("R-015: decoding with JSON.parse, qs.parse or URL parsers is not validation", () => {
+    for (const decode of ["JSON.parse(await req.text())", "qs.parse(await req.text())", "JSON5.parse(await req.text())", "Object.fromEntries(new URLSearchParams(await req.text()))"]) {
+      const f = scan({ "app/api/orders/route.ts": `export async function POST(req: Request) {\n  const body = ${decode};\n  return Response.json(body);\n}\n` });
+      assert.ok(rulesIn(f).includes("R-015"), decode);
+    }
+  });
+  test("R-015: a schema's .parse or .validate still counts, including chained and decoded-then-validated input", () => {
+    for (const body of [
+      "Order.parse(JSON.parse(await req.text()))",
+      "z.object({ id: z.string() }).parse(await req.json())",
+      "await orderSchema.validate(await req.json())",
+      "schemas.order.safeParse(await req.json())",
+    ]) {
+      const f = scan({ "app/api/orders/route.ts": `export async function POST(req: Request) {\n  const body = ${body};\n  return Response.json(body);\n}\n` });
+      assert.ok(!rulesIn(f).includes("R-015"), body);
+    }
+  });
+  test("R-015: a decoder under another name is still not validation", () => {
+    for (const [setup, call] of [
+      ["const p = JSON;", "p.parse(await req.text())"],
+      ["const a = JSON;\nconst b = a;", "b.parse(await req.text())"],
+      ['import * as y from "yaml";', "y.parse(await req.text())"],
+      ['import jsYaml from "js-yaml";', "jsYaml.load(await req.text())"],
+      ['const q = require("qs");', "q.parse(await req.text())"],
+    ]) {
+      const f = scan({ "app/api/orders/route.ts": `${setup}\nexport async function POST(req: Request) {\n  const body = ${call};\n  return Response.json(body);\n}\n` });
+      assert.ok(rulesIn(f).includes("R-015"), setup);
+    }
+  });
+  test("R-015: a schema held under another name still counts", () => {
+    for (const [setup, call] of [
+      ["const S = Order;", "S.parse(await req.json())"],
+      ['import Order from "./schemas/order";', "Order.parse(await req.json())"],
+      ['import * as schemas from "./schemas";', "schemas.order.parse(await req.json())"],
+    ]) {
+      const f = scan({ "app/api/orders/route.ts": `${setup}\nexport async function POST(req: Request) {\n  const body = ${call};\n  return Response.json(body);\n}\n` });
+      assert.ok(!rulesIn(f).includes("R-015"), setup);
+    }
+  });
+  test("R-015 (Python): json under another name is not validation; a marshmallow schema is", () => {
+    const route = (setup, call) => `${setup}\nfrom flask import Flask, request\napp = Flask(__name__)\n\n@app.post("/orders")\ndef create():\n    data = ${call}\n    return data\n`;
+    for (const [setup, call] of [["import json as j", "j.load(request.data)"], ["import json\nloader = json", "loader.load(request.data)"]]) {
+      assert.ok(rulesIn(scan({ "app/routes.py": route(setup, call) })).includes("R-015"), setup);
+    }
+    assert.ok(!rulesIn(scan({ "app/routes.py": route("from app.schemas import OrderSchema\nschema = OrderSchema()", "schema.load(request.json)") })).includes("R-015"));
+  });
   test("R-015 treats a verified webhook signature as validation", () => {
     const f = scan({
       "app/api/webhooks/stripe/route.ts":
@@ -91,6 +140,25 @@ describe("file rules", () => {
       "src/modules/billing/service.ts": 'import { find } from "../../modules/users/repo";\nimport { save } from "../../modules/billing/repo";\nexport const x = [find, save];\n',
     });
     assert.equal(f.filter((x) => x.rule === "R-016").length, 1);
+  });
+  test("R-022 catches null-only service methods even behind a feature flag", () => {
+    const f = scan({
+      "src/modules/billing/service.ts": "export async function charge(): Promise<Receipt | null> {\n  return null;\n}\n",
+      "src/payment.service.ts": "export class PaymentService {\n  async charge(): Promise<Receipt | null> {\n    return null;\n  }\n}\n",
+      "src/services/receipt.ts": "export const issueReceipt = async (id: string) => {\n  return null;\n};\n",
+      "src/services/preview.ts": "export const preview = (id: string) => null;\n",
+      "src/features.ts": "export const billingEnabled = false;\n",
+    });
+    assert.equal(f.filter((x) => x.rule === "R-022").length, 4);
+  });
+  test("R-022 leaves real nullable service flows and non-service files alone", () => {
+    const f = scan({
+      "src/modules/billing/service.ts": "export async function charge(id: string) {\n  if (!id) return null;\n  return saveCharge(id);\n}\n",
+      "src/services/order.ts": "export function find(id: string) {\n  return orders.get(id) ?? null;\n}\n",
+      "src/dashboard.ts": "export function emptyState() {\n  return null;\n}\n",
+      "src/services/help.ts": "export const example = `\nfunction fake() { return null; }\n`;\n// function commented() { return null; }\n",
+    });
+    assert.ok(!rulesIn(f).includes("R-022"));
   });
 });
 
@@ -137,6 +205,6 @@ describe("custom rules from config", () => {
     assert.deepEqual(f.map((x) => `${x.rule}:${x.file}`), ["HC-1:src/ledger/repo.ts"]);
   });
   test("disable turns a rule off", () => {
-    assert.deepEqual(rulesIn(scan({ "src/a.ts": 'export function f(): void {\n  console.log("x");\n}\n' }, { disable: ["R-009"] })), []);
+    assert.deepEqual(rulesIn(scan({ "src/a.ts": 'export function f(): void {\n  console.log("x");\n}\n' }, { disable: ["R-009", "R-018"] })), []);
   });
 });
