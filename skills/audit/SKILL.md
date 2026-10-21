@@ -17,7 +17,10 @@ Score the project and explain the result in plain language.
    `npx --yes realitygate audit . --md=REALITY-AUDIT.md` instead.
 
 2. Read the terminal summary and `REALITY-AUDIT.md`. Report to the user, in this order:
-   - the score and grade in one line;
+   - the score and grade in one line, saying it comes from reading the code, not running it;
+   - what the "Executed" section shows: which checks actually ran and passed or failed, and
+     which are NOT RUN. Never describe a NOT RUN check as passing. If tests or the clean-install
+     boot weren't run, offer `audit . --exec`. It runs the project's own commands, so ask first;
    - anything **urgent** first: exposed secrets (R-011, R-012, committed `.env`) mean the user
      must rotate those credentials. Say so plainly and never print secret values;
    - the 3–5 most important findings, each in one sentence a non-programmer understands,

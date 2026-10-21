@@ -36,7 +36,7 @@ npx --yes realitygate selftest
 4. CI: add a workflow step using the RealityGate GitHub Action:
 
    ```yaml
-   - uses: usmanmanii/realitygate@v0.2.1
+   - uses: usmanmanii/realitygate@v0.3.0
      with:
        min-score: 80
    ```

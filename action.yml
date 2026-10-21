@@ -18,6 +18,33 @@ inputs:
   selftest:
     description: Also prove every rule can fail (`realitygate selftest`)
     default: "true"
+  exec:
+    description: Run the project's test command and a clean-install boot, and fail if either fails. Off by default, because it runs the project's own code. The score itself stays static either way
+    default: "false"
+  test-command:
+    description: Test command for `exec` (default `npm test` when package.json has a real test script)
+    default: ""
+  boot-start:
+    description: Start command for the clean-install boot (default `npm start` when package.json has a start script)
+    default: ""
+  boot-install:
+    description: Install command for the clean-install boot (default chosen from the lockfile, e.g. `npm ci`)
+    default: ""
+  boot-ready:
+    description: Regular expression the app prints once it is up, e.g. `ready|listening`
+    default: ""
+  boot-probe:
+    description: Command that exits 0 once the app works, e.g. `curl -fsS http://localhost:3000/health`
+    default: ""
+  boot-timeout:
+    description: Seconds to wait for the app to become ready
+    default: "60"
+  comment:
+    description: On pull requests, post or update one comment with the score, the delta against the base branch and new findings. Needs `permissions` with `pull-requests` write
+    default: "false"
+  github-token:
+    description: Token used to post the pull request comment
+    default: ${{ github.token }}
 
 outputs:
   score:
@@ -26,6 +53,9 @@ outputs:
   grade:
     description: Letter grade (A-F)
     value: ${{ steps.audit.outputs.grade }}
+  delta:
+    description: Score change against the pull request's base (empty outside pull requests with comment enabled)
+    value: ${{ steps.audit.outputs.delta }}
 
 runs:
   using: composite
@@ -35,19 +65,69 @@ runs:
       env:
         RG_PATH: ${{ inputs.path }}
         RG_MIN: ${{ inputs.min-score }}
+        RG_EXEC: ${{ inputs.exec }}
+        RG_TEST: ${{ inputs.test-command }}
+        RG_START: ${{ inputs.boot-start }}
+        RG_INSTALL: ${{ inputs.boot-install }}
+        RG_READY: ${{ inputs.boot-ready }}
+        RG_PROBE: ${{ inputs.boot-probe }}
+        RG_TIMEOUT: ${{ inputs.boot-timeout }}
+        RG_COMMENT: ${{ inputs.comment }}
+        RG_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         set -euo pipefail
         node --version
-        node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" audit "$RG_PATH" --json --md="$RUNNER_TEMP/reality-audit.md" > "$RUNNER_TEMP/reality-audit.json"
+        ARGS=(audit "$RG_PATH" --json --md="$RUNNER_TEMP/reality-audit.md")
+        if [ "$RG_EXEC" = "true" ]; then
+          ARGS+=(--exec --timeout "$RG_TIMEOUT")
+          [ -n "$RG_TEST" ] && ARGS+=(--test-cmd "$RG_TEST")
+          [ -n "$RG_START" ] && ARGS+=(--start "$RG_START")
+          [ -n "$RG_INSTALL" ] && ARGS+=(--install "$RG_INSTALL")
+          [ -n "$RG_READY" ] && ARGS+=(--ready "$RG_READY")
+          [ -n "$RG_PROBE" ] && ARGS+=(--probe "$RG_PROBE")
+        fi
+        if [ "$RG_COMMENT" = "true" ] && [ -n "$RG_BASE_SHA" ]; then
+          git cat-file -e "$RG_BASE_SHA^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$RG_BASE_SHA"
+          ARGS+=(--compare "$RG_BASE_SHA" --pr-comment="$RUNNER_TEMP/reality-comment.md")
+        fi
+        set +e
+        node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" "${ARGS[@]}" > "$RUNNER_TEMP/reality-audit.json"
+        AUDIT_EXIT=$?
+        set -e
+        if [ "$AUDIT_EXIT" -eq 2 ]; then exit 2; fi
         cat "$RUNNER_TEMP/reality-audit.md" >> "$GITHUB_STEP_SUMMARY"
-        SCORE=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).score)' "$RUNNER_TEMP/reality-audit.json")
-        GRADE=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).grade)' "$RUNNER_TEMP/reality-audit.json")
+        read_json() { node -e 'const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const v = process.argv[2].split(".").reduce((o, k) => (o == null ? o : o[k]), r); console.log(v ?? "")' "$RUNNER_TEMP/reality-audit.json" "$1"; }
+        SCORE=$(read_json score)
+        GRADE=$(read_json grade)
         echo "score=$SCORE" >> "$GITHUB_OUTPUT"
         echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+        echo "delta=$(read_json delta.change)" >> "$GITHUB_OUTPUT"
         echo "Reality Score: $SCORE/100 ($GRADE)"
+        if [ "$AUDIT_EXIT" -ne 0 ]; then
+          echo "::error title=RealityGate::An executed check failed (tests or clean-install boot). See the job summary."
+          echo "failed=true" >> "$GITHUB_OUTPUT"
+        fi
         if [ "$RG_MIN" -gt 0 ] && [ "$SCORE" -lt "$RG_MIN" ]; then
           echo "::error title=RealityGate::Reality Score $SCORE is below the required $RG_MIN"
-          exit 1
+          echo "failed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - if: ${{ always() && inputs.comment == 'true' && github.event.pull_request.number }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        RG_REPO: ${{ github.repository }}
+        RG_PR: ${{ github.event.pull_request.number }}
+      run: |
+        set -uo pipefail
+        BODY="$RUNNER_TEMP/reality-comment.md"
+        if [ ! -s "$BODY" ]; then echo "No comment to post."; exit 0; fi
+        MARKER='<!-- realitygate-pr-comment -->'
+        ID=$(gh api "repos/$RG_REPO/issues/$RG_PR/comments" --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -n 1)
+        if [ -n "$ID" ]; then
+          gh api -X PATCH "repos/$RG_REPO/issues/comments/$ID" -F body=@"$BODY" > /dev/null || echo "::warning title=RealityGate::Could not update the PR comment (the token needs pull-requests: write; fork PRs get a read-only token)."
+        else
+          gh api -X POST "repos/$RG_REPO/issues/$RG_PR/comments" -F body=@"$BODY" > /dev/null || echo "::warning title=RealityGate::Could not post the PR comment (the token needs pull-requests: write; fork PRs get a read-only token)."
         fi
 
     - if: ${{ inputs.check == 'true' }}
@@ -61,3 +141,9 @@ runs:
       env:
         RG_PATH: ${{ inputs.path }}
       run: node "$GITHUB_ACTION_PATH/bin/realitygate.mjs" selftest "$RG_PATH"
+
+    - if: ${{ always() && steps.audit.outputs.failed == 'true' }}
+      shell: bash
+      run: |
+        echo "RealityGate: failing the job (see the errors above and the job summary)."
+        exit 1

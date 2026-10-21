@@ -1,6 +1,6 @@
 {
   "name": "realitygate",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Prove what your AI coding agent built is real: Reality Score audit, fake-code gate, gate self-test, Claude Code guardrail hooks, and a spec-driven Build OS that takes a solo founder from an SRS to a shipped MVP.",
   "type": "module",
   "bin": {

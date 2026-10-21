@@ -3,14 +3,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { installAgents, installGitHook } from "../src/agents.mjs";
 import { runAudit } from "../src/audit.mjs";
+import { auditAtRef, auditDelta, changedFiles, deletedFiles } from "../src/compare.mjs";
+import { auditMarkdown, bootLine, printAudit, prCommentMarkdown } from "../src/report.mjs";
 import { printCheck, runCheck } from "../src/check.mjs";
-import { ConfigError } from "../src/config.mjs";
+import { ConfigError, loadConfig } from "../src/config.mjs";
 import { runDoctor } from "../src/doctor.mjs";
 import { installHooks } from "../src/hooks-install.mjs";
 import { KIT_ROOT, runInit } from "../src/init.mjs";
+import { serveStdio } from "../src/mcp.mjs";
 import { proofMarkdown, runProof } from "../src/proof.mjs";
-import { auditMarkdown, printAudit } from "../src/report.mjs";
 import { buildReviewPack } from "../src/review-pack.mjs";
+import { executedChecks, runBoot } from "../src/run.mjs";
 import { runSelftest } from "../src/selftest.mjs";
 import { scanSkills } from "../src/skill-scan.mjs";
 import { c, err, out } from "../src/ui.mjs";
@@ -19,11 +22,25 @@ const HELP = `
 ${c.bold("realitygate")} — prove what your AI agent built is real.
 
 ${c.bold("Usage")}
-  realitygate audit [dir] [--md[=file]] [--json] [--min-score N] [--all]
+  realitygate audit [dir] [--md[=file]] [--json] [--min-score N] [--all] [--exec]
+                    [--compare <ref>] [--pr-comment=<file>]
       Reality Score (0–100) for any repo: fake code, hallucinated imports,
-      exposed secrets, unvalidated routes, swallowed errors, tests.
-  realitygate check [dir] [--config file] [--json]
+      exposed secrets, unvalidated routes, swallowed errors, tests. The score
+      is static (read, not run). The report lists separately what was
+      executed: the rule self-test always; with --exec also your test
+      command and a clean-install boot. Anything not run says NOT RUN.
+      --compare scores <ref> too and reports the delta and new findings;
+      --pr-comment writes a short Markdown summary for a pull request.
+  realitygate boot [dir] [--start "<cmd>"] [--install "<cmd>"] [--ready <regex>]
+                   [--probe "<cmd>"] [--timeout <s>] [--json]
+      Copy the project without node_modules or .env files, install from the
+      lockfile, and start it with only the env vars in .env.example. Exit 1
+      if install fails, the app crashes, or it never becomes ready.
+  realitygate check [dir] [--config file] [--json] [--changed [--base <ref>]]
       The Reality Gate. Exit 1 on any violation or on a scan of zero files.
+      With --changed (change mode), only files changed since <ref> (default
+      HEAD: uncommitted work), so an existing repo can gate new work first.
+      A changed manifest or .env.example also rechecks R-014/R-017 everywhere.
   realitygate selftest [dir] [--gate "<command>"]
       Proves every rule fires on a planted violation. With --gate, plants a
       canary in the project and requires your gate command to go red.
@@ -50,6 +67,10 @@ ${c.bold("Usage")}
       execution, obfuscation, hidden Unicode, credential/.env access,
       data-leak endpoints, prompt injection, permission bypass, hooks, MCP
       servers, install scripts. Reads files only; never runs them.
+  realitygate mcp
+      Read-only MCP server on stdio (tools: audit, check, proof, scan_skills,
+      list_rules). Add it to Claude Code with:
+      claude mcp add realitygate -- npx -y realitygate mcp
   realitygate doctor [dir]
       Check that the kit is wired correctly.
 
@@ -60,7 +81,7 @@ ${c.bold("Options")}
 
 // Flags that take a value as the next argument; every other flag is boolean
 // unless written as --flag=value (e.g. --md=report.md).
-const VALUE_FLAGS = new Set(["config", "gate", "min-score", "base", "srs"]);
+const VALUE_FLAGS = new Set(["config", "gate", "min-score", "base", "srs", "compare", "test-cmd", "install", "start", "ready", "probe", "timeout"]);
 
 function parseArgs(argv) {
   const positional = [];
@@ -85,7 +106,27 @@ function statusLine(r) {
   return `  ${tag}  ${r.name.padEnd(34)} ${c.dim(r.detail)}`;
 }
 
-function main() {
+function runOverrides(flags) {
+  const str = (k) => (typeof flags[k] === "string" ? flags[k] : undefined);
+  for (const k of ["test-cmd", "install", "start", "ready", "probe", "timeout"]) {
+    if (flags[k] === true) throw new ConfigError(`--${k} needs a value`);
+  }
+  let timeout;
+  if (flags.timeout !== undefined) {
+    timeout = Number(flags.timeout);
+    if (!Number.isFinite(timeout) || timeout <= 0) throw new ConfigError("--timeout needs a positive number of seconds");
+  }
+  if (str("ready") !== undefined) {
+    try {
+      new RegExp(str("ready"));
+    } catch (e) {
+      throw new ConfigError(`--ready is not a valid regular expression: ${e.message}`);
+    }
+  }
+  return { test: str("test-cmd"), install: str("install"), start: str("start"), ready: str("ready"), probe: str("probe"), timeout };
+}
+
+async function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const [command, ...rest] = positional;
 
@@ -101,7 +142,12 @@ function main() {
   switch (command) {
     case "audit": {
       const dir = resolve(rest[0] ?? ".");
-      const result = runAudit(dir, { configPath: typeof flags.config === "string" ? flags.config : undefined });
+      const configPath = typeof flags.config === "string" ? flags.config : undefined;
+      const result = runAudit(dir, { configPath });
+      if (flags.compare === true) throw new ConfigError("--compare needs a git ref, e.g. --compare origin/main");
+      if (typeof flags.compare === "string") result.delta = auditDelta(auditAtRef(dir, flags.compare, { configPath }), result, flags.compare);
+      result.checks = await executedChecks(dir, { configPath, exec: Boolean(flags.exec), run: runOverrides(flags) });
+      if (typeof flags["pr-comment"] === "string") writeFileSync(resolve(flags["pr-comment"]), prCommentMarkdown(result));
       if (flags.json) out(JSON.stringify(result, null, 2));
       else printAudit(result, { limit: flags.all ? Infinity : 20 });
       if (flags.md) {
@@ -117,10 +163,30 @@ function main() {
           return 1;
         }
       }
+      if (flags.exec && result.checks.some((ch) => ch.status === "FAIL")) {
+        err(c.red("At least one executed check failed (see \"Executed\" above)."));
+        return 1;
+      }
       return 0;
     }
+    case "boot": {
+      const dir = resolve(rest[0] ?? ".");
+      const config = loadConfig(dir, typeof flags.config === "string" ? flags.config : undefined);
+      for (const [k, v] of Object.entries(runOverrides(flags))) if (v !== undefined && k !== "test") config.run[k] = v;
+      if (!flags.json) out(c.bold("realitygate boot — clean install, documented env vars only"));
+      const r = await runBoot(dir, config.run);
+      if (flags.json) out(JSON.stringify(r, null, 2));
+      else bootLine(r).forEach((l) => out(l));
+      if (r.status === "NOT RUN") throw new ConfigError(r.detail);
+      return r.status === "PASS" ? 0 : 1;
+    }
     case "check": {
-      const result = runCheck(resolve(rest[0] ?? "."), { configPath: typeof flags.config === "string" ? flags.config : undefined });
+      const dir = resolve(rest[0] ?? ".");
+      const base = typeof flags.changed === "string" ? flags.changed : typeof flags.base === "string" ? flags.base : "HEAD";
+      const onlyFiles = flags.changed ? changedFiles(dir, base) : undefined;
+      const deleted = flags.changed ? deletedFiles(dir, base) : undefined;
+      const result = runCheck(dir, { configPath: typeof flags.config === "string" ? flags.config : undefined, onlyFiles, deleted });
+      if (onlyFiles) result.base = base;
       if (flags.json) out(JSON.stringify(result, null, 2));
       else printCheck(result);
       return result.ok ? 0 : 1;
@@ -232,6 +298,10 @@ function main() {
       }
       return r.high || (flags.strict && r.medium) ? 1 : 0;
     }
+    case "mcp": {
+      await serveStdio();
+      return 0;
+    }
     case "doctor": {
       const result = runDoctor(resolve(rest[0] ?? "."));
       out(c.bold("realitygate doctor"));
@@ -246,7 +316,7 @@ function main() {
 }
 
 try {
-  process.exitCode = main();
+  process.exitCode = await main();
 } catch (e) {
   if (e instanceof ConfigError || ["NOTHING_TO_AUDIT", "NO_STATE", "BAD_INPUT"].includes(e?.code)) {
     err(c.red(`realitygate: ${e.message}`));

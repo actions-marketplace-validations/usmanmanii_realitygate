@@ -31,9 +31,19 @@ behaviour), then the code.
 | `quick` | bug fix, copy change, small tweak (≤ 50 lines, no schema/auth/money) | one task spec → tests → implement → gate → review → commit. No phase docs |
 | `standard` | a feature inside an existing product | spec delta in SPEC.md → backlog entry → full Phase 5 loop |
 | `full` | a new product or a new release | Phases 0–7 in order |
+| `change` | one change to an existing repo that wasn't built with this OS, without adopting all of it | `.agent/changes/<id>/` with `proposal.md` (why, what, out of scope) and `delta.md` (`ADDED` / `MODIFIED` / `REMOVED` requirements, EARS criteria) → task spec → tests → implement → `realitygate check --changed --base <main>` → review → commit |
 
 Anything touching schema, auth, money, data deletion or dependencies is never `quick`,
 however small. When unsure, take the heavier track.
+
+**Change mode** (the `change` track) is for brownfield repos with debt the change didn't create.
+Run `realitygate audit` once and record the score in `proposal.md` as the baseline. The gate is
+`realitygate check --changed --base <main>`: the same rules and scope checks, applied only to
+the files this change touches (plus, when it edits a dependency manifest or `.env.example`, a
+recheck of R-014 or R-017 in every file). New code must be clean, and old debt is listed, not
+fixed on the side. After the review, merge the delta into `docs/SPEC.md` if the repo has one, and move the
+change folder to `.agent/changes/archive/`. If the change grows past one task, switch to
+`standard`.
 
 **Tooling.** The deterministic parts of this OS ship as a zero-dependency CLI,
 `realitygate` (`npx realitygate <command>`): `audit` (Reality Score), `check` (the Reality
@@ -549,7 +559,7 @@ If it can't be done for real: write a blocker, mark BLOCKED, move on. Never simu
 
 ### 6.2 The Reality Gate: `npx realitygate check`
 
-The reference implementation ships in the `realitygate` CLI (16 built-in rules, R-001…R-016;
+The reference implementation ships in the `realitygate` CLI (22 built-in rules, R-001…R-022;
 see the README). Project-specific rules go in `realitygate.config.json`. Each one needs a
 `canary` string that violates it, so `selftest` can prove the rule fires. If a stack isn't
 covered (e.g. a language the CLI doesn't scan), write `scripts/reality-check.mjs` to these

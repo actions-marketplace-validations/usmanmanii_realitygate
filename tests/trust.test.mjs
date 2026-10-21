@@ -147,9 +147,9 @@ describe("RealityGate's own trust guarantees", () => {
     }
   });
 
-  test("only the reviewed files start processes (git, and the user's own gate command)", () => {
+  test("only the reviewed files start processes (git, the user's own gate command, and the test/boot commands behind --exec and boot)", () => {
     const r = scanSkills(KIT);
-    assert.deepEqual(r.inventory.spawnsProcesses.sort(), ["src/agents.mjs", "src/files.mjs", "src/proof.mjs", "src/review-pack.mjs", "src/selftest.mjs"]);
+    assert.deepEqual(r.inventory.spawnsProcesses.sort(), ["src/agents.mjs", "src/compare.mjs", "src/files.mjs", "src/proof.mjs", "src/review-pack.mjs", "src/run.mjs", "src/selftest.mjs"]);
   });
 
   test("every skill meets the Agent Skills spec (name rules, matches folder, description length)", () => {

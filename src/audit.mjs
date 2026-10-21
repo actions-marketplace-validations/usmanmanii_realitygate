@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { loadConfig } from "./config.mjs";
+import { documentedEnv, extractEnvReads, isProvided } from "./env.mjs";
 import { SOURCE_EXT, TS_EXT, isSecretEnvFile, isTestFile, listFiles, parseJsonc, readJson, readText } from "./files.mjs";
-import { scanFiles, selectSecretScanExtras, selectSources } from "./scan.mjs";
+import { exclusions, justifiedLines, scanFiles, scanManifests, scanTestFiles, selectSecretScanExtras, selectSources } from "./scan.mjs";
+import { hasAssertion } from "./testquality.mjs";
 
 /**
  * Category weights sum to 100. Each finding deducts points from its category,
@@ -35,6 +37,12 @@ const RULE_COST = {
   "R-008": ["types", 0.5],
   "R-009": ["hygiene", 0.25],
   "R-016": ["hygiene", 2],
+  "R-017": ["hygiene", 1],
+  "R-018": ["fake", 0.5],
+  "R-019": ["tests", 3],
+  "R-020": ["tests", 1],
+  "R-021": ["hallucination", 5],
+  "R-022": ["fake", 4],
 };
 const CUSTOM_COST = ["security", 3];
 
@@ -49,7 +57,7 @@ export function runAudit(rootArg, { configPath } = {}) {
   const allFiles = listFiles(root);
   const { files: sources } = selectSources(root, config, allFiles);
   if (sources.length === 0) {
-    const e = new Error("no source files found to audit (looked for .js/.ts/.jsx/.tsx/.py outside tests)");
+    const e = new Error("no source files found to audit (looked for .js/.ts/.jsx/.tsx/.py/.go outside tests)");
     e.code = "NOTHING_TO_AUDIT";
     throw e;
   }
@@ -57,13 +65,17 @@ export function runAudit(rootArg, { configPath } = {}) {
   const findings = scanFiles(root, sources, config, { allFiles });
   const extras = selectSecretScanExtras(config, allFiles).filter((f) => !sources.includes(f));
   findings.push(...scanFiles(root, extras, config, { allFiles, onlyRuleIds: new Set(["R-011", "R-012"]) }));
+  const tests = scanTestFiles(root, config, allFiles);
+  findings.push(...tests.findings);
+  findings.push(...scanManifests(root, config, allFiles).findings);
 
   const signals = projectSignals(root, allFiles, sources);
   const deductions = Object.fromEntries(CATEGORIES.map((cat) => [cat.id, []]));
 
   for (const f of findings) {
     const [cat, cost] = f.custom ? CUSTOM_COST : RULE_COST[f.rule] ?? ["hygiene", 0.5];
-    deductions[cat].push({ cost, reason: `${f.rule} ${f.label}`, finding: f });
+    // R-021's "can't verify, no lockfile" warning is already charged as the NO-LOCKFILE project check.
+    deductions[cat].push({ cost: f.rule === "R-021" && f.severity === "warn" ? 0 : cost, reason: `${f.rule} ${f.label}`, finding: f });
   }
   for (const s of signals.issues) deductions[s.category].push({ cost: s.cost, reason: s.reason, signal: s.id });
 
@@ -80,7 +92,9 @@ export function runAudit(rootArg, { configPath } = {}) {
     categories,
     findings,
     signals,
-    stats: { sourceFiles: sources.length, testFiles: signals.testFiles, filesListed: allFiles.length },
+    stats: { sourceFiles: sources.length, testFiles: signals.testFiles, testFilesWithAssertions: signals.testFilesWithAssertions, filesListed: allFiles.length },
+    excluded: exclusions(root, config, allFiles),
+    justified: justifiedLines(root, [...sources, ...tests.files]),
     fixPlan: fixPlan(categories, findings, signals),
     badge: badge(score),
   };
@@ -129,6 +143,17 @@ function projectSignals(root, allFiles, sources) {
     }
   }
 
+  const env = documentedEnv(root, allFiles);
+  const undocumented = new Set();
+  for (const f of sources) {
+    if (env.forFile(f)) continue;
+    for (const { name, text } of extractEnvReads(f, readText(root, f) ?? "")) if (!isProvided(name) && !/justified:/.test(text)) undocumented.add(name);
+  }
+  if (undocumented.size > 0) {
+    const list = [...undocumented].sort();
+    issues.push({ id: "ENV-NO-EXAMPLE", category: "hygiene", cost: 2, reason: `code reads ${list.length} env var(s) with no .env.example in its folder or above: ${list.slice(0, 5).join(", ")}${list.length > 5 ? ", …" : ""}` });
+  }
+
   const hasCi = allFiles.some((f) => /^\.github\/workflows\/.+\.ya?ml$|^\.gitlab-ci\.yml$|^\.circleci\/config\.yml$|^azure-pipelines\.yml$|^bitbucket-pipelines\.yml$/.test(f));
   if (!hasCi) issues.push({ id: "NO-CI", category: "hygiene", cost: 2, reason: "no CI workflow found" });
 
@@ -137,7 +162,8 @@ function projectSignals(root, allFiles, sources) {
     issues.push({ id: "NO-LOCKFILE", category: "hygiene", cost: 1, reason: "dependencies declared but no lockfile committed" });
   }
 
-  return { issues, testFiles: tests.length, routeFiles: routes.length };
+  const testFilesWithAssertions = tests.filter((t) => hasAssertion(t, readText(root, t) ?? "")).length;
+  return { issues, testFiles: tests.length, testFilesWithAssertions, routeFiles: routes.length };
 }
 
 function fixPlan(categories, findings, signals) {
@@ -150,7 +176,7 @@ function fixPlan(categories, findings, signals) {
     plan.push("URGENT: rotate exposed credentials, move secrets to the host's env store, git-ignore `.env*`, and remove public-prefixed secret env vars.");
   }
   if (byRule["R-014"]) plan.push(`Resolve ${byRule["R-014"].length} undeclared import(s): add the real package or remove the invented one (${topFiles(byRule["R-014"])}).`);
-  const fake = ["R-001", "R-002", "R-003", "R-004", "R-005"].flatMap((r) => byRule[r] ?? []);
+  const fake = ["R-001", "R-002", "R-003", "R-004", "R-005", "R-022"].flatMap((r) => byRule[r] ?? []);
   if (fake.length) plan.push(`Replace ${fake.length} stub/placeholder/hardcoded-example occurrence(s) with real implementations (${topFiles(fake)}).`);
   if (byRule["R-015"]) plan.push(`Add schema validation (e.g. zod) to ${byRule["R-015"].length} route(s) that read input (${topFiles(byRule["R-015"])}).`);
   if (has("NO-NEGATIVE-AUTHZ")) plan.push("Write negative-authorization tests: user A must get 401/403 on user B's objects, for every route that touches data.");
@@ -160,6 +186,7 @@ function fixPlan(categories, findings, signals) {
   if (has("TS-NOT-STRICT")) plan.push("Enable `strict` in tsconfig.json and fix the resulting type errors.");
   if (types.length) plan.push(`Remove ${types.length} unjustified \`any\`/@ts-ignore (or add \`justified: <reason>\`).`);
   if (byRule["R-016"]) plan.push("Route cross-module data access through the owning module's service instead of its repo.");
+  if (byRule["R-017"] || has("ENV-NO-EXAMPLE")) plan.push("Document every env var the code reads in `.env.example` (name and an example value), so a fresh install knows what to set.");
   if (has("NO-CI")) plan.push("Add a CI workflow that runs typecheck, tests and `npx realitygate check` on every push.");
   if (plan.length === 0) plan.push("No blocking issues found. Wire `realitygate check` and `realitygate selftest` into CI to keep it that way.");
   return plan;

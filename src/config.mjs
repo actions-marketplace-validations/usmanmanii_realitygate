@@ -13,6 +13,9 @@ export const DEFAULT_EXCLUDE = [
   "**/migrations/**",
   "**/generated/**",
   "**/__generated__/**",
+  "**/*.pb.go",
+  "**/*_pb2.py",
+  "**/*_pb2_grpc.py",
 ];
 
 export const DEFAULT_CONFIG = {
@@ -23,6 +26,7 @@ export const DEFAULT_CONFIG = {
   rules: [],
   fileRules: [],
   hooks: { protectedPaths: [], appliedMigrationsManifest: null },
+  run: { test: null, install: null, start: null, ready: null, probe: null, timeout: 60 },
 };
 
 export class ConfigError extends Error {}
@@ -35,7 +39,7 @@ export function loadConfig(root, explicitPath) {
   const path = explicitPath ? join(root, explicitPath) : join(root, CONFIG_FILE);
   if (!existsSync(path)) {
     if (explicitPath) throw new ConfigError(`config file not found: ${explicitPath}`);
-    return { ...structuredClone(DEFAULT_CONFIG), source: null };
+    return { ...structuredClone(DEFAULT_CONFIG), source: null, excludeReasons: {}, disableReasons: {} };
   }
   let raw;
   try {
@@ -47,14 +51,26 @@ export function loadConfig(root, explicitPath) {
     throw new ConfigError(`${CONFIG_FILE} must contain a JSON object`);
   }
 
-  const cfg = { ...structuredClone(DEFAULT_CONFIG), source: path };
+  const cfg = { ...structuredClone(DEFAULT_CONFIG), source: path, excludeReasons: {}, disableReasons: {} };
   cfg.include = stringArray(raw.include ?? [], "include");
+  // Reasons are kept so every report can show what was left out and why.
   cfg.exclude = (raw.exclude ?? []).map((e, i) => {
     if (typeof e === "string") return e;
-    if (e && typeof e.glob === "string") return e.glob;
+    if (e && typeof e.glob === "string") {
+      if (typeof e.reason === "string" && e.reason.trim()) cfg.excludeReasons[e.glob] = e.reason.trim();
+      return e.glob;
+    }
     throw new ConfigError(`exclude[${i}] must be a glob string or { glob, reason }`);
   });
-  cfg.disable = stringArray(raw.disable ?? [], "disable");
+  if (!Array.isArray(raw.disable ?? [])) throw new ConfigError("disable must be an array of rule ids or { id, reason }");
+  cfg.disable = (raw.disable ?? []).map((d, i) => {
+    if (typeof d === "string") return d;
+    if (d && typeof d.id === "string") {
+      if (typeof d.reason === "string" && d.reason.trim()) cfg.disableReasons[d.id] = d.reason.trim();
+      return d.id;
+    }
+    throw new ConfigError(`disable[${i}] must be a rule id or { id, reason }`);
+  });
 
   const mayBeEmpty = raw.mayBeEmpty ?? {};
   if (typeof mayBeEmpty !== "object" || Array.isArray(mayBeEmpty)) {
@@ -106,6 +122,18 @@ export function loadConfig(root, explicitPath) {
     appliedMigrationsManifest:
       typeof hooks.appliedMigrationsManifest === "string" ? hooks.appliedMigrationsManifest : null,
   };
+
+  const run = raw.run ?? {};
+  if (typeof run !== "object" || Array.isArray(run)) throw new ConfigError("run must be an object");
+  for (const key of ["test", "install", "start", "ready", "probe"]) {
+    if (run[key] !== undefined && run[key] !== null && typeof run[key] !== "string") throw new ConfigError(`run.${key} must be a string`);
+    cfg.run[key] = run[key] ?? null;
+  }
+  if (cfg.run.ready !== null) compile(cfg.run.ready, "", "run.ready");
+  if (run.timeout !== undefined) {
+    if (!Number.isFinite(run.timeout) || run.timeout <= 0) throw new ConfigError("run.timeout must be a positive number of seconds");
+    cfg.run.timeout = run.timeout;
+  }
   return cfg;
 }
 

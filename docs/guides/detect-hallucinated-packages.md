@@ -7,8 +7,9 @@ description: Find undeclared and potentially invented npm package imports in AI-
 # How to detect hallucinated npm packages (slopsquatting)
 
 **Short answer:** `npx realitygate check` fails the build on any import of a package that no
-`package.json` in the import's path declares. It reports the file, line and package name, so an
-invented package never reaches `main`.
+`package.json` in the import's path declares (R-014), and on any declared dependency your
+lockfile has no entry for (R-021). It reports the file, line and package name. A lockfile entry
+shows the package exists, not that it's safe, so new dependencies still need a human look.
 
 ## What is a hallucinated package?
 
@@ -40,6 +41,27 @@ Anything else is reported:
     import "react-magic-state"
 ```
 
+## When the agent declares the package too (rule R-021)
+
+R-014 trusts the manifest. If an agent invents a package *and* adds it to `package.json`,
+R-014 has nothing to flag. R-021 closes that gap without going online. Every declared
+dependency must have an entry in the lockfile (`package-lock.json`, `pnpm-lock.yaml`,
+`yarn.lock`, `bun.lock`, `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock` or `go.sum`),
+because only a real install from the registry writes one:
+
+```
+✗ package.json:12  R-021 declared dependency missing from the lockfile (never installed; may not exist)
+    "react-magic-state" is declared but not in package-lock.json: never installed, so nothing shows it exists (install it, or the lockfile is stale)
+```
+
+With no lockfile, or only the binary `bun.lockb`, R-021 can't verify anything. It says so as a
+warning instead of passing. Commit your lockfile.
+
+**What a lockfile entry proves, and what it doesn't:** the name resolved on a registry when
+someone installed it. That's all. It doesn't prove the package is the one you meant, or that it's
+safe. A slopsquatted package installs fine and gets a lockfile entry like any other. Review new
+dependencies before you install them, as described below.
+
 ## What to do with a finding
 
 1. Check the registry: does `https://www.npmjs.com/package/<name>` exist, and is it the
@@ -52,7 +74,7 @@ Anything else is reported:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: usmanmanii/realitygate@v0.2.1
+- uses: usmanmanii/realitygate@v0.3.0
 ```
 
 Or anywhere with Node 20+: `npx realitygate check`.

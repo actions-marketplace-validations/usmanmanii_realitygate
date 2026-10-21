@@ -26,8 +26,9 @@ that takes a solo founder from an SRS or idea to a real, shipped product.**
 </div>
 
 **RealityGate** is an open-source, zero-dependency **CLI, Claude Code plugin and GitHub Action**
-that proves whether AI-generated ("vibe-coded") code is real. It gives any JavaScript, TypeScript
-or Python repository a **Reality Score from 0 to 100**. It fails the build on stubs, placeholder
+that proves whether AI-generated ("vibe-coded") code is real. It gives any JavaScript, TypeScript,
+Python or Go repository a **Reality Score from 0 to 100**, and keeps what it inferred from the code
+apart from what it actually ran. It fails the build on stubs, placeholder
 code, fake data, **hallucinated npm packages**, leaked secrets and unvalidated API routes, proves
 its own checks can fail, keeps a **Proof Ledger** of how every task was verified, and ships a
 spec-driven **Build OS** that takes a solo founder from an **SRS** or idea to a shipped MVP on a
@@ -37,10 +38,10 @@ near-zero budget, with six ready-made subagents doing the planning, review and r
 |---|---|
 | Works with | Claude Code (plugin) · Codex · Antigravity / Gemini CLI · Cursor · GitHub Copilot · any CI or git workflow |
 | Install | Claude Code plugin · `npx realitygate` · GitHub Action · Agent Skills · git pre-commit |
-| Commands | `audit` · `check` · `selftest` · `proof` · `review-pack` · `scan-skills` · `agents install` · `hooks install` · `init [--srs]` · `doctor` |
-| Build OS | Start from your SRS · 6 subagents · cost estimate with free-tier limits · release-readiness states · resumes from disk |
-| Languages | JavaScript, TypeScript (incl. monorepos), Python (partial) |
-| Rules | 16 built-in + your own, each proven by a planted canary |
+| Commands | `audit [--exec] [--compare]` · `check [--changed]` · `boot` · `selftest` · `proof` · `review-pack` · `scan-skills` · `mcp` · `agents install` · `hooks install` · `init [--srs]` · `doctor` |
+| Build OS | Start from your SRS · 6 subagents · cost estimate with free-tier limits · release-readiness states · resumes from disk · change mode for existing repos |
+| Languages | JavaScript, TypeScript (incl. monorepos), Python, Go |
+| Rules | 22 built-in + your own, each proven by a planted canary |
 | Privacy | Runs locally · no network · no telemetry · never reads `.env` contents |
 | Dependencies | 0 (Node ≥ 20 standard library) |
 | License | MIT © Muhammad Usman |
@@ -56,6 +57,30 @@ near-zero budget, with six ready-made subagents doing the planning, review and r
 - **Honest finish line:** `ship` writes `docs/RELEASE-READINESS.md` and ends in exactly one state:
   `CODE COMPLETE`, `RELEASE READY` or `LIVE DEPLOYED`.
 - **Existing apps too:** Phase 0 adopts your current code instead of scaffolding over it.
+
+### 🆕 Also in v0.3.0: what ran, not just what was read
+
+- **Executed vs inferred:** the audit report separates the static score from the checks that
+  actually ran, each with its command and exit code. A check that didn't run says **NOT RUN**,
+  never "pass". `audit --exec` also runs your test command and a clean-install boot. The test
+  check reads the runner's summary (node:test, Jest, Vitest, Mocha, pytest, `go test`) and fails
+  a run where no test passed, even if it exited 0.
+- **`realitygate boot`:** copies the repo without `node_modules` or `.env` files, installs from
+  the lockfile, and starts the app with only the env vars in `.env.example`.
+- **Five new rules:** R-017, env vars the code reads that `.env.example` doesn't list; R-018,
+  exports nothing imports or calls (built, compiles, never runs); R-019, tests that can't fail
+  (empty, `expect(true).toBe(true)`, no assertion, committed `.only`); R-020, skipped tests;
+  R-021, declared dependencies the lockfile has never seen (invented, then declared).
+- **Pull requests:** `audit --compare <ref>` gives the score delta and new findings, and the
+  Action can post them as one comment (`comment: true`).
+- **Change mode:** `check --changed` gates only what a change touches, so existing repos can adopt
+  the gate without fixing everything first. If the change edits a dependency manifest or
+  `.env.example`, unchanged files are rechecked for imports (R-014) or env vars (R-017) it broke;
+  if it deletes one, a warning says which check that switched off.
+- **MCP server:** `realitygate mcp`, read-only, for any MCP client.
+- **Go and deeper Python:** invented imports checked against `go.mod`, `requirements.txt` and
+  `pyproject.toml`; `if err != nil {}`; `# type: ignore` / `# noqa`; unvalidated Flask and Django
+  input.
 
 Details: [The Build OS](#-the-build-os-idea--shipped-product) · [CHANGELOG](CHANGELOG.md)
 
@@ -125,12 +150,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: usmanmanii/realitygate@v0.2.1
+      - uses: usmanmanii/realitygate@v0.3.0
         with:
           min-score: 80      # fail below 80 (0 = report only)
 ```
 
-The full audit report is written to the job summary. Outputs: `score`, `grade`.
+The full audit report is written to the job summary. Outputs: `score`, `grade`, `delta`.
+
+Optional inputs: `exec: true` runs your test command and a clean-install boot (`test-command`,
+`boot-start`, `boot-install`, `boot-ready`, `boot-probe`, `boot-timeout`), and fails the job if
+either fails. `comment: true` posts one pull request comment with the score, the delta against
+the base branch and new findings, and updates it on every push. It needs:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
 
 ### 4. Skills without the plugin
 
@@ -186,20 +222,26 @@ Real output on [`examples/vibe-coded-app`](examples/vibe-coded-app), a small app
 mistakes AI agents commonly ship:
 
 ```
-REALITY AUDIT — vibe-coded-app    Reality Score: 33/100 (F)
-scanned 3 source files · 0 test files
+REALITY AUDIT — vibe-coded-app    Reality Score: 31/100 (F)
+scanned 3 source files · 0 test files · score from static analysis only
 
+Inferred (static: code was read, not run)
   Category                 Score    Issues
-  ✗ Fake code                 0/20    8
+  ✗ Fake code                 0/20    10
   ✗ Hallucinated imports      5/15    2
   ✗ Security                 12/25    2
   ! Error handling            6/10    2
   ! Type safety               8/10    3
   ✗ Tests                     0/15    2
-  ✗ Hygiene                  1.8/5    3
+  ✗ Hygiene                    0/5    4
+
+Executed (1 passed · 2 not run) — not part of the score
+  ✓ Rules fire on planted canaries   PASS     `realitygate selftest` → exit 0
+  – Test suite                       NOT RUN
+  – Clean install boots              NOT RUN
 
 Findings (18 of 18)
-  ✗ app/api/orders/route.ts:2   R-014 import of a package not declared in any package.json
+  ✗ app/api/orders/route.ts:2   R-014 import of a package the project doesn't declare
       import "next-email-magic"
   ✗ app/api/orders/route.ts:7   R-012 secret exposed to the client via a public env prefix
       process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
@@ -219,7 +261,7 @@ Fix plan
   …
 
 Badge for your README:
-  ![Reality Score](https://img.shields.io/badge/Reality%20Score-33%2F100%20F-red)
+  ![Reality Score](https://img.shields.io/badge/Reality%20Score-31%2F100%20F-red)
 ```
 
 For comparison, the (in-progress) production codebase this kit was extracted from, built under
@@ -231,13 +273,15 @@ the Build OS, scores **100/100**, and so does this repo.
 
 | Tool | What it does | Who it's for |
 |---|---|---|
-| **`realitygate audit`** | Reality Score 0–100 for any repo, with findings, a fix plan and a README badge | Anyone with an AI-built app (Lovable, Bolt, v0, Cursor, Replit, Claude Code…) |
-| **`realitygate check`** | **The Reality Gate.** Exit 1 on fake code, hallucinated imports, leaked secrets, unvalidated routes. Put it in CI | Any project using AI agents |
+| **`realitygate audit`** | Reality Score 0–100 for any repo, with findings, a fix plan and a README badge. The score is static; the report lists separately what was **executed** and what was **NOT RUN**. `--exec` runs your tests and a clean-install boot; `--compare <ref>` adds the score delta | Anyone with an AI-built app (Lovable, Bolt, v0, Cursor, Replit, Claude Code…) |
+| **`realitygate check`** | **The Reality Gate.** Exit 1 on fake code, hallucinated imports, leaked secrets, unvalidated routes, undocumented env vars. Put it in CI. `--changed` (change mode) gates only what a change touches | Any project using AI agents |
+| **`realitygate boot`** | **Clean-install boot.** Copies the repo without `node_modules` or `.env` files, installs from the lockfile, starts the app with only the env vars in `.env.example`, and waits for a ready pattern, a probe command or 10 s without a crash | Anyone whose app "works on my machine" |
 | **`realitygate selftest`** | Proves every check **can fail**: plants a violation per rule, and with `--gate` plants one in your project and requires your real gate to go red | Anyone who doesn't trust a green checkmark |
 | **`realitygate proof`** | **Proof Ledger.** For every DONE task, checks the journal for real evidence: failing tests first, green gate, APPROVED review, real execution, an existing commit. Writes `PROOF.md` + a "tasks verified" badge | Founders, agencies, reviewers: anyone who needs to *show* how AI-built code was verified |
 | **`realitygate review-pack`** | Bundles reviewer instructions + task spec + diff for a reviewer from a **different model family** (Claude builds, Codex reviews, or the reverse) | Anyone who doesn't want an AI grading its own homework |
 | **`realitygate hooks install`** | Claude Code guardrails: the agent physically can't read `.env`, force-push, `reset --hard`, edit files outside its task, or modify applied migrations | Claude Code users |
 | **`realitygate init` + `BUILD-OS.md`** | A spec-driven OS: your SRS, idea and research → spec → architecture → test-first build loop with adversarial review → ship → post-launch. `--srs` adds your SRS; installs six subagents | Solo founders and vibe coders building a new product or finishing an existing one |
+| **`realitygate mcp`** | Read-only MCP server (stdio) with `audit`, `check`, `proof`, `scan_skills` and `list_rules`. Supports MCP 2026-07-28 and the older `initialize` handshake. `claude mcp add realitygate -- npx -y realitygate mcp` | Any MCP client or editor |
 | **`realitygate doctor`** | Checks the whole setup is wired correctly | Everyone using the OS |
 
 ---
@@ -296,7 +340,7 @@ and pin a version or commit.
 
 ## 🔍 What it catches
 
-16 built-in rules, all tested, all proven by `selftest` on every run.
+22 built-in rules, all tested, all proven by `selftest` on every run.
 
 | Rule | Catches | Why it matters |
 |---|---|---|
@@ -305,21 +349,27 @@ and pin a version or commit.
 | R-003 | `lorem ipsum`, "coming soon" | Placeholder product |
 | R-004 | "for now", "in a real app", "in production you would…" | The agent admitting it simulated the work |
 | R-005 | `John Doe`, `mockData`, `admin@example.com` outside tests | Fake data shipped to users |
-| R-006 | `@ts-ignore` / `@ts-nocheck` / `@ts-expect-error` without `justified:` | Silenced type errors |
-| R-007 | `eslint-disable` without `justified:` | Silenced lint |
+| R-006 | `@ts-ignore` / `@ts-nocheck` / `@ts-expect-error`, Python `# type: ignore` / `# pyright: ignore`, without `justified:` | Silenced type errors |
+| R-007 | `eslint-disable`, Python `# noqa` / `# pylint: disable`, without `justified:` | Silenced lint |
 | R-008 | `any` without `justified:` | Type safety switched off |
 | R-009 | `console.log` in app code (scripts/bin exempt) | Debug leftovers, data leaks to logs |
 | R-010 | Commented-out code *(warning)* | Dead code |
 | R-011 | Hardcoded keys: AWS, Stripe live, GitHub, Slack, Google, OpenAI, Anthropic, private keys | Credential leaks |
 | R-012 | `NEXT_PUBLIC_*SERVICE_ROLE*`, `VITE_*SECRET*` … | Secrets shipped to the browser |
-| R-013 | `catch {}`, `.catch(() => [])`, `except: pass` | Failures hidden from users and you |
-| R-014 | Imports of packages declared in no `package.json` (monorepo, tsconfig paths, aliases aware) | **Hallucinated packages**, missing deps, and slopsquatting risk |
-| R-015 | Route handlers reading input with no zod/yup/valibot/joi/ajv validation | Injection and garbage data |
+| R-013 | `catch {}`, `.catch(() => [])`, `except: pass`, Go `if err != nil {}` and `_ = err` | Failures hidden from users and you |
+| R-014 | Imports of packages the project doesn't declare: JS/TS against `package.json` (monorepo, tsconfig paths, aliases aware); Python against `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.py`/`setup.cfg` (stdlib, local packages and known renames like `PIL` → Pillow allowed; indented imports skipped); Go against `go.mod` (`require`, `replace`, own module, stdlib). Each language only when its manifest exists | **Hallucinated packages**, missing deps, and slopsquatting risk |
+| R-015 | Route handlers reading input with no zod/yup/valibot/joi/ajv validation; Flask/FastAPI/Django handlers reading `request.json`/`form`/`POST`… with no pydantic, marshmallow, form or serializer validation. Decoding (`JSON.parse`, `qs.parse`, `json.load`, `yaml.load`) doesn't count as validation, even under another name (`const p = JSON`, `import * as y from "yaml"`, `import json as j`) | Injection and garbage data |
 | R-016 | `modules/a` importing `modules/b/repo` | Architecture erosion |
+| R-017 | An env var the code reads (`process.env.X`, `import.meta.env.X`, `os.environ`, `os.getenv`, `os.Getenv`) that `.env.example` doesn't list. Only runs when the repo has an env example file; vars set by the OS, CI, the host or the framework (`NODE_ENV`, `PORT`, `CI`, `GITHUB_*`, `VERCEL_*`, Vite's `MODE`/`DEV`…) are skipped, and so is a line with `justified:` | A fresh install that can't boot because nobody wrote down what to set |
+| R-018 | An exported function, component, class or const whose name appears in no other file *(warning)*. Any mention counts as use (imports, re-exports, HTML, JSON, strings), and it says when only tests use it. Skipped: framework entry files (Next.js `app/**/page`/`layout`/`route`…, `middleware`, `pages/`, Remix `app/routes/`, SvelteKit `+page`…), `bin/`, `scripts/`, `hooks/`, `index`/`main`/`server` files, stories, workers, `components/ui/` kits, files named in `package.json` or other config, convention exports (`GET`, `metadata`, `loader`, `getStaticProps`…), type and default exports, packages that export `"./*"`, and lines with `justified:` | Code that was built and compiles but never runs |
+| R-019 | In test files only: a test with an empty body (`() => {}`, `pass`, `...`, docstring-only, empty `func TestX`), an assertion on a literal (`expect(true).toBe(true)`, `assert.equal(1, 1)`, `assert True`, `self.assertEqual(1, 1)`), a test file whose tests contain no assertion anywhere (unless the first test's line says `justified:`), a single test with no assertion in a file whose other tests have one *(warning; helpers named like assertions, functions defined in the file, test-support imports, `throw`, `await`, the test's own parameters and e2e folders count as a way to fail)*, or a committed `.only`/`fit`/`fdescribe`/`{ only: true }`. Fixtures, mocks and snapshots aren't read | "Add tests" satisfied by tests that can't fail; `.only` silently drops the rest of the suite |
+| R-020 | In test files only *(warning)*: an unconditional skip (`.skip`, `xit`/`xdescribe`, `{ skip: true }`, `@pytest.mark.skip`, `@unittest.skip`, a Go test that starts with `t.Skip`). Conditional skips (`skipIf`, `skipif`, `if testing.Short()`) and lines with `justified:` are fine | Failing tests skipped to turn the suite green |
+| R-021 | In dependency manifests (`package.json`, `requirements*.txt`, `pyproject.toml`, `Pipfile`, `setup.py`/`setup.cfg`, `go.mod`): a declared dependency with no entry in the lockfile (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `poetry.lock`, `uv.lock`, `pdm.lock`, `Pipfile.lock`, `go.sum`) next to it, or at a workspace root above it. Offline: only a registry install writes an entry. Skipped: workspace siblings, `workspace:`/`file:`/`link:` deps, Go modules replaced by a local path, pyproject `[build-system]`. No lockfile (or only binary `bun.lockb`) is a *warning*: "can't verify" | A package an agent invented *and* declared, which R-014 can't see. An entry proves the package exists, not that it's safe |
+| R-022 | JS/TS functions, class methods, or arrow functions in `service.*`, `*.service.*`, or `services/` whose entire body returns `null` | A service stub that can hide behind a feature flag and appear complete; conditional `null` returns with a real path are allowed |
 
 Plus project checks in `audit`: a committed `.env` (detected by name, **never read**), no tests,
 thin tests, **no negative-authorization tests** while routes exist, no real test script,
-non-strict `tsconfig`, no CI, no lockfile.
+non-strict `tsconfig`, no CI, no lockfile, env vars read with **no `.env.example` at all**.
 
 **Your own rules.** Turn any "never break this" rule into a check:
 
@@ -404,15 +454,24 @@ and put `realitygate check` + `selftest` in CI to make sure the result is real.
 ## 🚦 Put the gate in CI
 
 The GitHub Action (see [Install](#-install--pick-one)) runs `audit`, `check` and `selftest` and
-writes the report to the job summary. Inputs: `path`, `min-score`, `check`, `selftest`.
+writes the report to the job summary. Inputs: `path`, `min-score`, `check`, `selftest`, `exec` (plus the `test-command` and `boot-*` settings), `comment`.
 On any other CI:
 
 ```bash
 npx realitygate check && npx realitygate selftest && npx realitygate audit --min-score 80
+npx realitygate check --changed --base origin/main   # existing repo: gate only what this branch changed
+npx realitygate audit --exec                          # also run the tests and a clean-install boot
 ```
 
 Commands exit non-zero on failure: `check` → 1 on any violation or empty scan;
-`selftest` → 1 if any gate can't fail; `audit --min-score N` → 1 below N. Bad config → 2.
+`selftest` → 1 if any gate can't fail; `audit --min-score N` → 1 below N; `audit --exec` → 1 if
+the tests failed or none ran, or the boot failed; `boot` → 1 if install, start or readiness failed. Bad config → 2.
+
+`realitygate.config.json` can hold the commands so CI and teammates use the same ones:
+
+```json
+{ "run": { "test": "npm test", "start": "npm start", "ready": "ready|listening", "probe": "curl -fsS http://localhost:3000/health", "timeout": 60 } }
+```
 
 ---
 
@@ -494,19 +553,28 @@ Full operator manual: [START-HERE.md](START-HERE.md). The constitution: [BUILD-O
 
 | Field | Meaning |
 |---|---|
-| `include` | Globs of app source to scan. Empty = every `.js/.ts/.jsx/.tsx/.mjs/.cjs/.py` outside tests. **Each glob must match ≥ 1 file** |
-| `exclude` | Globs, or `{ "glob", "reason" }` |
+| `include` | Globs of app source to scan. Empty = every `.js/.ts/.jsx/.tsx/.mjs/.cjs/.py/.go` outside tests. **Each glob must match ≥ 1 file** |
+| `exclude` | Globs, or `{ "glob", "reason" }`. Every report lists each one with its reason and file count |
 | `mayBeEmpty` | `{ "glob": "written reason" }` for include targets that may legitimately be empty for now |
-| `disable` | Rule IDs to turn off, e.g. `["R-009"]` |
+| `disable` | Rule IDs to turn off, or `{ "id", "reason" }`, e.g. `[{ "id": "R-009", "reason": "CLI output" }]`. Listed in every report |
 | `rules` | Custom line rules: `id`, `label`, `pattern`, `flags`, `paths`, `severity`, `canary` |
 | `fileRules` | Custom file rules: `trigger` present ⇒ `mustContain` required (e.g. money writes must mention the ledger) |
 | `hooks.protectedPaths` | Globs the agent may not edit |
 | `hooks.appliedMigrationsManifest` | JSON file listing applied migrations (keys or array); those files become immutable |
+| `run` | Commands for executed checks: `test`, `install`, `start`, `ready` (regex), `probe`, `timeout` (seconds). Used by `audit --exec` and `boot`; CLI flags override them |
 
-Always ignored: tests (`tests/`, `__tests__/`, `*.test.*`, `*.spec.*`), `node_modules`,
-build output, `*.d.ts`, `*.config.*`, migrations, generated code, seed scripts, and the
-contents of `.env*` files. Escape hatch for a single line: a `justified: <reason>` comment
-(R-006/7/8).
+Always ignored: `node_modules`, build output, `*.d.ts`, `*.config.*`, migrations, generated code
+(including `*.pb.go`, `*_pb2.py` and any file whose header says `Code generated … DO NOT EDIT`),
+seed scripts, and the contents of `.env*` files. Tests (`tests/`, `__tests__/`, `*.test.*`,
+`*.spec.*`, `test_*.py`, `*_test.py`, `*_test.go`) are read only by R-019 and R-020, and
+fixtures, mocks and snapshots not at all. `check` and `audit` print a **Not scanned** list of all
+of this, with file counts and the reason for each `exclude` and `disable` entry, and how many files
+R-018 skips as entry files or because config names them.
+
+Escape hatch for a single line: a `justified: <reason>` comment (R-006/7/8, R-017, R-018, R-019's
+no-assertion check, R-020). It has to be in a comment; inside a string it doesn't count. The audit
+lists every justified line with its reason, `check` prints the count, and the PR comment shows the
+count and its change against the base.
 
 ---
 
@@ -514,7 +582,9 @@ contents of `.env*` files. Escape hatch for a single line: a `justified: <reason
 
 **Is the Reality Score a guarantee my app is good?**
 No. It's a fast, deterministic signal of the most common ways AI-built code fakes being done.
-A low score means "look here first". A high score means none of those patterns were found,
+The score is static analysis: the code is read, not run. The report lists separately what was
+actually executed (the rule self-test always; with `--exec`, your tests and a clean-install boot),
+and marks anything else NOT RUN. A low score means "look here first". A high score means none of those patterns were found,
 not that the product is correct. That's what tests and the Build OS are for.
 
 **Does it upload my code anywhere?** No. It runs locally, uses no network, has no telemetry,
@@ -530,8 +600,10 @@ Clone it without installing, then run `npx realitygate scan-skills <folder>`. It
 execution, obfuscation, hidden Unicode, credential and `.env` access, data-leak endpoints, prompt
 injection and permission bypasses, and lists every hook and MCP server the package would run.
 
-**Which languages?** JavaScript and TypeScript fully (including JSX/TSX, monorepos). Python
-for placeholders, sample data, secrets and swallowed errors. More profiles are on the roadmap.
+**Which languages?** JavaScript and TypeScript fully (including JSX/TSX, monorepos). Python and Go
+for placeholders, stubs, sample data, secrets, swallowed errors, undocumented env vars and
+undeclared imports, plus Python's `# type: ignore` / `# noqa` and unvalidated Flask/FastAPI/Django
+input. R-016 (cross-module repos) and R-018 (unwired code) are JS/TS only.
 
 **Does it work with Codex, Gemini / Antigravity CLI, Cursor or GitHub Copilot?** Yes.
 `npx realitygate agents install` adds portable Agent Skills (`.agents/skills/`) and rule files
@@ -560,8 +632,11 @@ invented package, leaked secret, unvalidated route and swallowed error, with a f
 Guide: [docs/guides/check-ai-generated-code.md](docs/guides/check-ai-generated-code.md).
 
 **How do I detect hallucinated npm packages?**
-`realitygate check` fails on any import that no `package.json` in its path declares (monorepo,
-tsconfig paths and aliases aware), which also protects against slopsquatting.
+`realitygate check` fails on any import that no `package.json` in its path declares (R-014;
+monorepo, tsconfig paths and aliases aware), and on any declared dependency the lockfile has no
+entry for (R-021), so an invented name can't hide in the manifest. A lockfile entry proves the
+package exists on the registry, not that it's safe: a slopsquatted package installs like any
+other, so review new dependencies before installing them.
 Guide: [docs/guides/detect-hallucinated-packages.md](docs/guides/detect-hallucinated-packages.md).
 
 **How do I stop Claude Code from reading my .env file?**
@@ -592,15 +667,26 @@ deduction is capped, so one noisy area can't hide the others.
 - [x] Packaged cross-model review: `realitygate review-pack`
 - [x] Claude Code plugin (6 skills + hooks) · GitHub Action with job-summary report
 - [x] Build OS from an SRS: `init --srs`, six subagents, cost estimate, release-readiness states, existing-code adoption
-- [ ] PR comment with the score delta
-- [ ] Read-only MCP server for any editor
-- [ ] Change mode for existing repos; guides for Spec Kit / OpenSpec / Superpowers users
-- [ ] More languages (Go, deeper Python)
+- [x] Undocumented env vars (R-017) and the `ENV-NO-EXAMPLE` project check
+- [x] Clean-install boot check: `realitygate boot`, `audit --exec`, Action `exec: true`
+- [x] Executed vs inferred in every report; checks that never ran show as NOT RUN
+- [x] Unwired code (R-018, warning)
+- [x] Tests that can't fail (R-019) and skipped tests (R-020, warning); executed test runs report how many tests passed
+- [x] Declared dependencies missing from the lockfile (R-021)
+- [x] Service methods whose whole body returns `null` (R-022)
+- [x] PR comment with the score delta: `audit --compare`, Action `comment: true`
+- [x] Read-only MCP server: `realitygate mcp`
+- [x] Change mode (`check --changed`, Build OS `change` track); guides for Spec Kit / OpenSpec / Superpowers
+- [x] Go, deeper Python
+- [ ] Known gaps we're fixing next, including test runs with zero tests and assertion-free tests: see [TODO.md](TODO.md)
+- [ ] Unwired code and cross-module rules for Python and Go
+- [ ] More languages (Rust, Java/Kotlin)
 
 ## 📚 Guides
 
 - [How to check if AI-generated code is production ready](docs/guides/check-ai-generated-code.md)
 - [How to detect hallucinated npm packages (slopsquatting)](docs/guides/detect-hallucinated-packages.md)
+- [Use RealityGate with Spec Kit](docs/guides/use-with-spec-kit.md) · [with OpenSpec](docs/guides/use-with-openspec.md) · [with Superpowers](docs/guides/use-with-superpowers.md)
 - [Claude Code guardrails: block .env access, force-push and out-of-scope edits](docs/guides/claude-code-guardrails.md)
 - [FAILURES.md: real ways AI-built code faked being done](FAILURES.md)
 
